@@ -21,6 +21,7 @@ public static class RolePermissions
             Permissions.ManageUsers,
             Permissions.ManageRoles,
             Permissions.ManageModules,
+            Permissions.ManageConnectors,
             Permissions.ManageAiSettings,
             Permissions.ViewAuditLog,
             "chat.*",

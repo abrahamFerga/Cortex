@@ -3,6 +3,7 @@ using Cortex.Application.Ai;
 using Cortex.Application.Approvals;
 using Cortex.Application.Auditing;
 using Cortex.Application.Authorization;
+using Cortex.Application.Connectors;
 using Cortex.Application.Conversations;
 using Cortex.Application.Files;
 using Cortex.Application.Jobs;
@@ -16,6 +17,7 @@ using Cortex.Infrastructure.Ai;
 using Cortex.Infrastructure.Approvals;
 using Cortex.Infrastructure.Auditing;
 using Cortex.Infrastructure.Authorization;
+using Cortex.Infrastructure.Connectors;
 using Cortex.Infrastructure.Context;
 using Cortex.Infrastructure.Conversations;
 using Cortex.Infrastructure.Documents;
@@ -50,8 +52,20 @@ public static class InfrastructureSetup
         AddAgentStack(builder);
         AddFilesAndDocuments(builder);
         AddRag(builder);
+        AddConnectors(services);
 
         return builder;
+    }
+
+    private static void AddConnectors(IServiceCollection services)
+    {
+        // Registered unconditionally: with no IConnector registrations the catalog is empty and the
+        // tool feed contributes nothing. Enablement is per tenant, default-OFF, via the admin API.
+        services.AddSingleton<IConnectorCatalog, ConnectorCatalog>();
+        services.AddScoped<ITenantConnectorStore, TenantConnectorStore>();
+        services.AddScoped<IConnectorToolCatalog, ConnectorToolCatalog>();
+        services.AddScoped<ConnectorSettingsService>();
+        services.AddScoped<Cortex.Connectors.Sdk.IConnectorSettings>(sp => sp.GetRequiredService<ConnectorSettingsService>());
     }
 
     private static void AddRag(IHostApplicationBuilder builder)

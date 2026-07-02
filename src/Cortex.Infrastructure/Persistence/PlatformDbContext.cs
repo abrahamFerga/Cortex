@@ -32,6 +32,7 @@ public sealed class PlatformDbContext(
     public DbSet<BackgroundJob> BackgroundJobs => Set<BackgroundJob>();
     public DbSet<RagCollection> RagCollections => Set<RagCollection>();
     public DbSet<RagChunk> RagChunks => Set<RagChunk>();
+    public DbSet<TenantConnector> TenantConnectors => Set<TenantConnector>();
 
     private static readonly MethodInfo ApplyTenantFilterMethod = typeof(PlatformDbContext)
         .GetMethod(nameof(ApplyTenantFilter), BindingFlags.NonPublic | BindingFlags.Instance)!;

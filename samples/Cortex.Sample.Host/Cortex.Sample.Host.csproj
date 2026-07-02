@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Cortex.AspNetCore\Cortex.AspNetCore.csproj" />
+    <ProjectReference Include="..\..\src\Cortex.Connectors\Cortex.Connectors.csproj" />
   </ItemGroup>
 
   <ItemGroup Label="Installed domain modules">

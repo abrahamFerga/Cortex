@@ -70,6 +70,8 @@ export type {
   ModuleSecurity,
   RoleInfo,
   ModuleAdmin,
+  ConnectorAdmin,
+  ConnectorSetting,
   AdminTenant,
   AiSettings,
   AdminUser,

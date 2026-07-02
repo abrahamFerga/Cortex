@@ -43,6 +43,14 @@ all runnable with no AI key via a built-in Mock provider. See [README.md](README
   hold inside jobs. Claim **leases** recover jobs orphaned by a crashed host (requeue up to 3
   attempts, then fail); running jobs **cancel cooperatively** at progress reports, and only their
   enqueuer may cancel them. Pollable at `/api/jobs`.
+- **Data-source connectors** — a manifest-first **connector SDK** (`Cortex.Connectors.Sdk`:
+  `IConnector`, settings schema, tool source) bridging agents to where tenant data already lives.
+  Connectors are **default-off per tenant**: an admin enables and configures each one on the new
+  **Integrations** page (`/api/admin/connectors`); only then do its tools exist for that tenant's
+  agents (still permission-gated per tool, fetches approval-gated, everything audited). Secret
+  settings are write-only and protected at rest. Ships with **Azure Blob Storage** and a keyless
+  **local-folder** connector; fetched files land in the tenant file store, so attachments, document
+  tools, matters, and RAG indexing work on them unchanged.
 - **Permission-aware RAG** (opt-in, `Rag:Enabled`) — documents ingest into **scoped collections**
   (per matter/project, the Harvey-Vault pattern) via a background job; retrieval is **hybrid**
   (pgvector + tsvector fused with RRF, tenant/collection predicates in both arms) through the

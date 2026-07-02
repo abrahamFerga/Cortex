@@ -12,6 +12,7 @@ public static class Permissions
     public const string ManageUsers = "platform.users.manage";
     public const string ManageRoles = "platform.roles.manage";
     public const string ManageModules = "platform.modules.manage";
+    public const string ManageConnectors = "platform.connectors.manage";
     public const string ManageAiSettings = "platform.ai.manage";
     public const string ViewAuditLog = "platform.audit.view";
 
@@ -48,4 +49,12 @@ public static class Permissions
 
     /// <summary>Builds the conventional wildcard covering all of a module's tools.</summary>
     public static string AllToolsFor(string moduleId) => $"{ToolPrefix}{moduleId}.*";
+
+    /// <summary>
+    /// Builds the conventional permission for a connector tool: <c>tools.connectors.&lt;id&gt;.&lt;tool&gt;</c>.
+    /// Staying under the tools.* umbrella keeps wildcards, the RBAC editor, and the security catalog
+    /// working unchanged; the extra segment keeps connector grants distinct from module grants.
+    /// </summary>
+    public static string ForConnectorTool(string connectorId, string toolName) =>
+        $"{ToolPrefix}connectors.{connectorId}.{toolName}";
 }

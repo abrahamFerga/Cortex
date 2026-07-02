@@ -106,6 +106,7 @@ public static class CortexHostSetup
         app.MapJobEndpoints();
         app.MapApprovalEndpoints();
         app.MapAdminEndpoints();
+        app.MapConnectorAdminEndpoints();
         app.MapAgui();
         app.MapWhatsAppChannel();
         app.MapHub<AgentHub>("/hubs/agent");

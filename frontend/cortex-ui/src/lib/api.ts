@@ -112,6 +112,30 @@ export interface ModuleAdmin {
   enabled: boolean;
 }
 
+/** One admin-configurable connector setting (schema-driven; secrets are write-only). */
+export interface ConnectorSetting {
+  key: string;
+  label: string;
+  description?: string;
+  required: boolean;
+  isSecret: boolean;
+  /** Whether a value is stored — for secrets, this is all the server will ever reveal. */
+  hasValue: boolean;
+}
+
+/** An installed data-source connector + the current tenant's state, from GET /api/admin/connectors. */
+export interface ConnectorAdmin {
+  id: string;
+  displayName: string;
+  description: string;
+  authMode: string;
+  supportsSync: boolean;
+  icon?: string;
+  enabled: boolean;
+  settings: ConnectorSetting[];
+  tools: { name: string; description?: string; permission: string; requiresApproval: boolean }[];
+}
+
 /** A tenant in the deployment, from GET /api/admin/tenants (operator-only, cross-tenant). */
 export interface AdminTenant {
   id: string;
@@ -388,6 +412,12 @@ export const api = {
     modules: () => apiGet<ModuleAdmin[]>("/api/admin/modules"),
     setModuleEnabled: (moduleId: string, enabled: boolean) =>
       apiSend(`/api/admin/modules/${encodeURIComponent(moduleId)}`, "PUT", { enabled }),
+    connectors: () => apiGet<ConnectorAdmin[]>("/api/admin/connectors"),
+    setConnectorEnabled: (connectorId: string, enabled: boolean) =>
+      apiSend(`/api/admin/connectors/${encodeURIComponent(connectorId)}/${enabled ? "enable" : "disable"}`, "POST"),
+    // Omitted keys keep their stored value (the UI never has a secret to echo back).
+    setConnectorSettings: (connectorId: string, values: Record<string, string>) =>
+      apiSend(`/api/admin/connectors/${encodeURIComponent(connectorId)}/settings`, "PUT", { values }),
     tenants: () => apiGet<AdminTenant[]>("/api/admin/tenants"),
     setTenantActive: (tenantId: string, isActive: boolean) =>
       apiSend(`/api/admin/tenants/${tenantId}/active`, "PUT", { isActive }),

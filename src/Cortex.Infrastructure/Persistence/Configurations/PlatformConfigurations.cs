@@ -171,6 +171,17 @@ internal sealed class BackgroundJobConfiguration : IEntityTypeConfiguration<Back
     }
 }
 
+internal sealed class TenantConnectorConfiguration : IEntityTypeConfiguration<TenantConnector>
+{
+    public void Configure(EntityTypeBuilder<TenantConnector> b)
+    {
+        b.ToTable("tenant_connectors");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.ConnectorId).HasMaxLength(64).IsRequired();
+        b.HasIndex(x => new { x.TenantId, x.ConnectorId }).IsUnique();
+    }
+}
+
 internal sealed class RagCollectionConfiguration : IEntityTypeConfiguration<RagCollection>
 {
     public void Configure(EntityTypeBuilder<RagCollection> b)

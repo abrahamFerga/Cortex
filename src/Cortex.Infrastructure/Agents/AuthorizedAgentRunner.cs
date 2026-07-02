@@ -5,6 +5,7 @@ using Cortex.Application.Agents;
 using Cortex.Application.Ai;
 using Cortex.Application.Approvals;
 using Cortex.Application.Auditing;
+using Cortex.Application.Connectors;
 using Cortex.Application.Conversations;
 using Cortex.Application.Modules;
 using Cortex.Application.Usage;
@@ -32,6 +33,7 @@ namespace Cortex.Infrastructure.Agents;
 public sealed class AuthorizedAgentRunner(
     IServiceProvider services,
     IToolRegistry toolRegistry,
+    IConnectorToolCatalog connectorTools,
     IModuleCatalog moduleCatalog,
     ITenantModuleStore tenantModuleStore,
     ITenantAiSettings tenantAiSettings,
@@ -85,8 +87,13 @@ public sealed class AuthorizedAgentRunner(
         var aiSettings = await tenantAiSettings.ResolveAsync(cancellationToken);
 
         // --- Pre-model-call tool filtering: the model only ever sees tools the caller may invoke. ---
+        // Module + platform tools, plus tools from connectors this TENANT has enabled (default-off) —
+        // then every tool, whatever its source, passes the same per-permission gate.
+        var candidateTools = new List<ModuleTool>(toolRegistry.GetModuleTools(request.ModuleId, services));
+        candidateTools.AddRange(await connectorTools.GetEnabledToolsAsync(services, cancellationToken));
+
         var permittedTools = new List<ModuleTool>();
-        foreach (var tool in toolRegistry.GetModuleTools(request.ModuleId, services))
+        foreach (var tool in candidateTools)
         {
             if (currentUser.HasPermission(tool.Permission))
             {

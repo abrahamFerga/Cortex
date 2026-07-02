@@ -4,6 +4,7 @@ import { SecurityCatalogView } from "./SecurityCatalogView";
 import { RolesEditor } from "./RolesEditor";
 import { UsersAdmin } from "./UsersAdmin";
 import { ModulesAdmin } from "./ModulesAdmin";
+import { IntegrationsAdmin } from "./IntegrationsAdmin";
 import { TenantsAdmin } from "./TenantsAdmin";
 import { AiSettingsAdmin } from "./AiSettingsAdmin";
 import { UsageDashboard } from "./UsageDashboard";
@@ -15,6 +16,7 @@ const SECTIONS = [
   { to: "/roles", label: "Roles", end: false },
   { to: "/users", label: "Users", end: false },
   { to: "/modules", label: "Modules", end: false },
+  { to: "/integrations", label: "Integrations", end: false },
   { to: "/tenants", label: "Tenants", end: false },
   { to: "/ai", label: "AI Settings", end: false },
   { to: "/usage", label: "Token Usage", end: false },
@@ -65,6 +67,7 @@ export function AdminPage() {
             <Route path="roles" element={<RolesEditor />} />
             <Route path="users" element={<UsersAdmin />} />
             <Route path="modules" element={<ModulesAdmin />} />
+            <Route path="integrations" element={<IntegrationsAdmin />} />
             <Route path="tenants" element={<TenantsAdmin />} />
             <Route path="ai" element={<AiSettingsAdmin />} />
             <Route path="usage" element={<UsageDashboard />} />

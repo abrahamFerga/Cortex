@@ -184,8 +184,11 @@ public static class AdminEndpoints
 
     private static void MapSecurity(RouteGroupBuilder group)
     {
-        // The complete, inspectable permission map: platform permissions + every module tool.
-        group.MapGet("/security/catalog", (IModuleCatalog catalog) =>
+        // The complete, inspectable permission map: platform permissions + every module tool +
+        // every installed connector's tools (grantable regardless of per-tenant enablement — a
+        // grant only matters once an admin also enables the connector).
+        group.MapGet("/security/catalog", (
+            IModuleCatalog catalog, Cortex.Application.Connectors.IConnectorCatalog connectors) =>
         {
             var platform = PermissionCatalog.Platform
                 .Select(p => new PermissionDto(p.Permission, p.Category, p.Description, false, false))
@@ -201,6 +204,15 @@ public static class AdminEndpoints
                         t.Description,
                         t.RequiresApproval,
                         t.Audit)).ToArray()))
+                .Concat(connectors.Manifests.Select(c => new ModuleSecurityDto(
+                    $"connectors.{c.Id}",
+                    $"{c.DisplayName} (connector)",
+                    c.Tools.Select(t => new PermissionDto(
+                        t.Permission,
+                        $"Tool · {c.DisplayName}",
+                        t.Description,
+                        t.RequiresApproval,
+                        t.Audit)).ToArray())))
                 .ToArray();
 
             return Results.Ok(new SecurityCatalogDto(platform, moduleTools));

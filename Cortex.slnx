@@ -18,6 +18,8 @@
   <Folder Name="/src/">
     <Project Path="src/Cortex.Core/Cortex.Core.csproj" />
     <Project Path="src/Cortex.Modules.Sdk/Cortex.Modules.Sdk.csproj" />
+    <Project Path="src/Cortex.Connectors.Sdk/Cortex.Connectors.Sdk.csproj" />
+    <Project Path="src/Cortex.Connectors/Cortex.Connectors.csproj" />
     <Project Path="src/Cortex.Application/Cortex.Application.csproj" />
     <Project Path="src/Cortex.Infrastructure/Cortex.Infrastructure.csproj" />
     <Project Path="src/Cortex.AspNetCore/Cortex.AspNetCore.csproj" />

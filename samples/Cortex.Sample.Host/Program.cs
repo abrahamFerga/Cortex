@@ -1,5 +1,8 @@
+using Cortex.AspNetCore.Connectors;
 using Cortex.AspNetCore.Hosting;
 using Cortex.AspNetCore.Modules;
+using Cortex.Connectors.AzureBlob;
+using Cortex.Connectors.LocalFolder;
 using Cortex.Modules.Finance;
 using Cortex.Modules.Legal;
 using Cortex.Modules.Nutrition;
@@ -20,6 +23,11 @@ builder.AddCortexPlatform();
 builder.AddCortexModule<FinanceModule>();
 builder.AddCortexModule<NutritionModule>();
 builder.AddCortexModule<LegalModule>();
+
+// Install the data-source connectors this product ships with. Installation only makes them
+// available — a tenant admin enables and configures each one under Integrations (default-off).
+builder.AddCortexConnector<LocalFolderConnector>();
+builder.AddCortexConnector<AzureBlobConnector>();
 
 var app = builder.Build();
 
