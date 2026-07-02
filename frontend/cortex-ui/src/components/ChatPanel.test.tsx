@@ -1,18 +1,30 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { HubConnection } from "@microsoft/signalr";
 
-// Replace the SignalR connection with a stub so the panel renders without a real hub.
-const { mockConnection, disposeMock } = vi.hoisted(() => {
+// Replace the SignalR connection with a stub so the panel renders without a real hub. Stream
+// subscribers are captured so tests can push events (tokens, errors) into the panel.
+const { mockConnection, disposeMock, streamObservers } = vi.hoisted(() => {
   const disposeMock = vi.fn();
+  const streamObservers: Array<{
+    next: (event: unknown) => void;
+    complete: () => void;
+    error: (e: unknown) => void;
+  }> = [];
   return {
     disposeMock,
+    streamObservers,
     mockConnection: {
       start: vi.fn(() => Promise.resolve()),
       stop: vi.fn(() => Promise.resolve()),
-      stream: vi.fn(() => ({ subscribe: vi.fn(() => ({ dispose: disposeMock })) })),
+      stream: vi.fn(() => ({
+        subscribe: vi.fn((observer: (typeof streamObservers)[number]) => {
+          streamObservers.push(observer);
+          return { dispose: disposeMock };
+        }),
+      })),
     },
   };
 });
@@ -48,6 +60,7 @@ describe("ChatPanel", () => {
     cleanup();
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+    streamObservers.length = 0;
   });
 
   it("offers the starter prompts and streams the one the user clicks", () => {
@@ -65,6 +78,97 @@ describe("ChatPanel", () => {
   it("gives the message input an accessible label (its placeholder vanishes once you type)", () => {
     renderChat();
     expect(screen.getByRole("textbox", { name: "Message" })).toBeTruthy();
+  });
+
+  it("sends the typed message on Enter", () => {
+    renderChat();
+
+    const box = screen.getByRole("textbox", { name: "Message" });
+    fireEvent.change(box, { target: { value: "What did I spend?" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    expect(mockConnection.stream).toHaveBeenCalledWith(
+      "Stream",
+      expect.objectContaining({ moduleId: "finance", message: "What did I spend?" }),
+    );
+  });
+
+  it("does not send on Shift+Enter (that inserts a newline instead)", () => {
+    renderChat();
+
+    const box = screen.getByRole("textbox", { name: "Message" });
+    fireEvent.change(box, { target: { value: "first line" } });
+    fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
+
+    expect(mockConnection.stream).not.toHaveBeenCalled();
+  });
+
+  it("on a stream failure keeps the user turn, drops the empty assistant bubble, and Retry resends the same text", () => {
+    renderChat();
+
+    const box = screen.getByRole("textbox", { name: "Message" });
+    fireEvent.change(box, { target: { value: "Summarize the brief" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    // While no tokens have arrived, the assistant bubble shows the typing indicator.
+    expect(mockConnection.stream).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status", { name: "Assistant is responding" })).toBeTruthy();
+
+    // The hub stream errors before the assistant produced anything.
+    act(() => {
+      streamObservers[0].error(new Error("hub went away"));
+    });
+
+    // The user's message survives; the dead assistant placeholder is removed.
+    expect(screen.getByText("Summarize the brief")).toBeTruthy();
+    expect(screen.queryByRole("status", { name: "Assistant is responding" })).toBeNull();
+
+    // Retry clears the error and issues a second stream call with the identical text.
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(mockConnection.stream).toHaveBeenCalledTimes(2);
+    expect(mockConnection.stream).toHaveBeenLastCalledWith(
+      "Stream",
+      expect.objectContaining({ moduleId: "finance", message: "Summarize the brief" }),
+    );
+
+    // The retried user turn is not duplicated in the transcript.
+    expect(screen.getAllByText("Summarize the brief")).toHaveLength(1);
+  });
+
+  it("renders a message's [Attached files] block as download chips instead of raw text", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/api/chat/conversations/c2/messages")) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                {
+                  id: "m1",
+                  role: "User",
+                  content: "Please review\n\n[Attached files]\n- brief.pdf (file id: f-123)",
+                },
+              ]),
+          } as unknown as Response);
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ permissions: [] }) } as unknown as Response);
+      }),
+    );
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ChatPanel moduleId="legal" conversationId="c2" />
+      </QueryClientProvider>,
+    );
+
+    // The file reference renders as a download chip linking to the file endpoint...
+    const chip = await screen.findByRole("link", { name: "brief.pdf" });
+    expect(chip.getAttribute("href")).toContain("/api/files/f-123");
+    // ...and the body shows without the raw block.
+    expect(screen.getByText("Please review")).toBeTruthy();
   });
 
   it("shows a Stop button while streaming and cancels the turn (disposing the stream) when clicked", () => {

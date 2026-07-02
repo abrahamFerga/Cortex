@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { matchPath, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { TopBar } from "../components/TopBar";
 import { Sidebar } from "../components/Sidebar";
 import { ChatView } from "../components/ChatView";
@@ -53,6 +53,8 @@ export function AppShell({ moduleUi, branding }: AppShellProps = {}) {
   const [selectedModuleId, setSelectedModuleId] = useState<string | undefined>(
     undefined,
   );
+  // Mobile-only navigation drawer (the sidebar is always visible at md+).
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
@@ -72,6 +74,26 @@ export function AppShell({ moduleUi, branding }: AppShellProps = {}) {
   );
 
   const tabs = useMemo(() => tabsFor(activeModule, chatEnabled), [activeModule, chatEnabled]);
+
+  // Reflect the current tab in the document title so history, bookmarks, and screen readers name
+  // the page. `matchPath` handles parameterized tab routes (e.g. `/finance/accounts/:id`).
+  useEffect(() => {
+    const productName = branding?.name ?? "Cortex";
+    const tab = tabs.find((t) => matchPath(t.route, pathname));
+    document.title = tab ? `${tab.label} · ${productName}` : productName;
+  }, [pathname, tabs, branding]);
+
+  // Move focus to the main landmark after in-app navigation (not the initial render) so screen
+  // readers announce the new page. The skip link still targets the same landmark.
+  const mainRef = useRef<HTMLElement>(null);
+  const firstRenderRef = useRef(true);
+  useEffect(() => {
+    if (firstRenderRef.current) {
+      firstRenderRef.current = false;
+      return;
+    }
+    mainRef.current?.focus({ preventScroll: true });
+  }, [pathname]);
 
   // Switching modules from the top-bar switcher: remember the choice and jump to its first visible tab.
   function changeModule(id: string) {
@@ -120,12 +142,22 @@ export function AppShell({ moduleUi, branding }: AppShellProps = {}) {
         >
           Skip to content
         </a>
-        <TopBar />
+        <TopBar
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen((open) => !open)}
+        />
         <DemoModeBanner />
         <div className="flex min-h-0 flex-1">
-          <Sidebar moduleId={activeModuleId} tabs={tabs} />
+          <Sidebar
+            moduleId={activeModuleId}
+            tabs={tabs}
+            open={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            onNavigate={() => setSidebarOpen(false)}
+          />
           <main
             id="main-content"
+            ref={mainRef}
             tabIndex={-1}
             aria-label="Workspace"
             className="min-h-0 flex-1 overflow-y-auto p-6 focus:outline-none"

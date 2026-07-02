@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TenantsAdmin } from "./TenantsAdmin";
 
@@ -48,7 +48,7 @@ describe("TenantsAdmin", () => {
     expect(screen.getByText("inactive")).toBeTruthy();
   });
 
-  it("deactivates a tenant via PUT", async () => {
+  it("deactivates a tenant via PUT after confirming through the dialog", async () => {
     const fetchMock = stubApi();
     renderTenants();
 
@@ -56,12 +56,51 @@ describe("TenantsAdmin", () => {
     // Acme is active, so it offers "Deactivate".
     fireEvent.click(screen.getAllByRole("button", { name: "Deactivate" })[0]);
 
+    // The dialog spells out the consequence before anything is sent.
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText(/All of this tenant's users will be denied access/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Deactivate" }));
+
     await waitFor(() => {
       const put = fetchMock.mock.calls.find(
         (c) => String(c[0]).includes("/api/admin/tenants/t1/active") && (c[1] as RequestInit | undefined)?.method === "PUT",
       );
       expect(put).toBeTruthy();
       expect(JSON.parse((put![1] as RequestInit).body as string)).toEqual({ isActive: false });
+    });
+  });
+
+  it("does not deactivate when the confirmation is dismissed", async () => {
+    const fetchMock = stubApi();
+    renderTenants();
+
+    await screen.findByText("Acme");
+    fireEvent.click(screen.getAllByRole("button", { name: "Deactivate" })[0]);
+
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(
+      fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === "PUT"),
+    ).toBe(false);
+  });
+
+  it("activates an inactive tenant in one click without confirmation", async () => {
+    const fetchMock = stubApi();
+    renderTenants();
+
+    await screen.findByText("Globex");
+    // Globex is inactive, so it offers "Activate" — no dialog on the activate direction.
+    fireEvent.click(screen.getByRole("button", { name: "Activate" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+
+    await waitFor(() => {
+      const put = fetchMock.mock.calls.find(
+        (c) => String(c[0]).includes("/api/admin/tenants/t2/active") && (c[1] as RequestInit | undefined)?.method === "PUT",
+      );
+      expect(put).toBeTruthy();
+      expect(JSON.parse((put![1] as RequestInit).body as string)).toEqual({ isActive: true });
     });
   });
 });

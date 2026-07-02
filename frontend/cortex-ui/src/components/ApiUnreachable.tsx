@@ -31,7 +31,7 @@ dotnet run --project samples/Cortex.Sample.Host`}
         <button
           type="button"
           onClick={onRetry}
-          className="mt-4 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500"
+          className="focus-ring mt-4 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500"
         >
           Retry
         </button>

@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RolesEditor } from "./RolesEditor";
 
 const ROLES = [
   { role: "system_admin", permissions: ["*"], editable: false, builtIn: true },
   { role: "user", permissions: ["chat.use"], editable: true, builtIn: true },
+  { role: "auditor", permissions: ["platform.audit.view"], editable: true, builtIn: false },
 ];
 
 const CATALOG = {
@@ -91,6 +92,35 @@ describe("RolesEditor (schema-driven)", () => {
       expect(body.permissions).toContain("chat.use");
       expect(body.permissions).toContain("platform.users.manage");
     });
+  });
+
+  it("deletes a custom role only after confirming through the dialog", async () => {
+    const fetchMock = stubApi();
+    renderEditor();
+
+    // The custom (non-built-in) role offers deletion.
+    fireEvent.click(await screen.findByRole("button", { name: /auditor/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete role" }));
+
+    // Cancelling the dialog leaves the role untouched…
+    let dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(
+      fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === "DELETE"),
+    ).toBe(false);
+
+    // …confirming issues the DELETE.
+    fireEvent.click(screen.getByRole("button", { name: "Delete role" }));
+    dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete role" }));
+
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          (c) => String(c[0]).includes("/api/admin/roles/auditor") && (c[1] as RequestInit | undefined)?.method === "DELETE",
+        ),
+      ).toBe(true),
+    );
   });
 
   it("shows system_admin as a locked, read-only role", async () => {

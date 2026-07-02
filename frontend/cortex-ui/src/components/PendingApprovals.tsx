@@ -69,7 +69,7 @@ export function PendingApprovals({ moduleId }: { moduleId: string }) {
                 type="button"
                 disabled={busy}
                 onClick={() => approve.mutate(a.id)}
-                className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                className="focus-ring rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
               >
                 Approve
               </button>
@@ -77,7 +77,7 @@ export function PendingApprovals({ moduleId }: { moduleId: string }) {
                 type="button"
                 disabled={busy}
                 onClick={() => reject.mutate(a.id)}
-                className="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="focus-ring rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
               >
                 Reject
               </button>

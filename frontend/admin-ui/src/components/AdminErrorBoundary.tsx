@@ -45,7 +45,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="mt-4 rounded bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-500"
+          className="focus-ring mt-4 rounded bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-500"
         >
           Reload console
         </button>

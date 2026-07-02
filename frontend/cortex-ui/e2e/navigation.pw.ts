@@ -40,7 +40,9 @@ test("switches the active module from the top-bar switcher", async ({ page }) =>
 
   await expect(page.getByRole("heading", { name: "Items" })).toBeVisible(); // first module lands
 
-  await page.getByLabel("Module").selectOption({ label: "Other Module" });
+  // By role: getByLabel("Module") would also substring-match the sidebar nav's "Module tabs"
+  // aria-label; the module switcher is the shell's only combobox.
+  await page.getByRole("combobox").selectOption({ label: "Other Module" });
 
   // Switching navigates to the other module's first tab and renders its data.
   await expect(page.getByRole("heading", { name: "Widgets" })).toBeVisible();

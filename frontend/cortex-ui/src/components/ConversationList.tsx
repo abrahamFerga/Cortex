@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 interface ConversationListProps {
   moduleId: string;
@@ -17,6 +19,7 @@ function formatWhen(iso: string): string {
 /** The chat history sidebar: the user's conversations for a module, newest first, with new + delete. */
 export function ConversationList({ moduleId, selectedId, onSelect, onNew, disabled }: ConversationListProps) {
   const queryClient = useQueryClient();
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const conversations = useQuery({
     queryKey: ["conversations", moduleId],
     queryFn: () => api.conversations(moduleId),
@@ -44,7 +47,7 @@ export function ConversationList({ moduleId, selectedId, onSelect, onNew, disabl
         type="button"
         onClick={onNew}
         disabled={disabled}
-        className="m-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="focus-ring m-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
       >
         + New chat
       </button>
@@ -70,7 +73,7 @@ export function ConversationList({ moduleId, selectedId, onSelect, onNew, disabl
                 onClick={() => onSelect(c.id)}
                 disabled={disabled}
                 title={c.title || "Untitled chat"}
-                className="min-w-0 flex-1 px-2 py-1.5 text-left disabled:cursor-not-allowed disabled:opacity-50"
+                className="focus-ring min-w-0 flex-1 rounded-md px-2 py-1.5 text-left disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <span
                   className={`block truncate text-sm ${
@@ -93,7 +96,7 @@ export function ConversationList({ moduleId, selectedId, onSelect, onNew, disabl
                     rename.mutate({ id: c.id, title: next });
                   }
                 }}
-                className="px-1 text-slate-400 opacity-0 hover:text-brand-600 focus:opacity-100 group-hover:opacity-100 disabled:opacity-30"
+                className="focus-ring rounded px-1 text-slate-400 opacity-0 hover:text-brand-600 focus:opacity-100 group-hover:opacity-100 disabled:opacity-30"
               >
                 ✎
               </button>
@@ -101,12 +104,8 @@ export function ConversationList({ moduleId, selectedId, onSelect, onNew, disabl
                 type="button"
                 aria-label="Delete conversation"
                 disabled={disabled || remove.isPending}
-                onClick={() => {
-                  if (window.confirm("Delete this conversation? This cannot be undone.")) {
-                    remove.mutate(c.id);
-                  }
-                }}
-                className="px-2 text-slate-400 opacity-0 hover:text-red-600 focus:opacity-100 group-hover:opacity-100 disabled:opacity-30"
+                onClick={() => setPendingDeleteId(c.id)}
+                className="focus-ring rounded px-2 text-slate-400 opacity-0 hover:text-red-600 focus:opacity-100 group-hover:opacity-100 disabled:opacity-30"
               >
                 ×
               </button>
@@ -114,6 +113,21 @@ export function ConversationList({ moduleId, selectedId, onSelect, onNew, disabl
           ))}
         </ul>
       </div>
+
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        title="Delete conversation"
+        body="Delete this conversation? This cannot be undone."
+        confirmLabel="Delete"
+        tone="danger"
+        onConfirm={() => {
+          if (pendingDeleteId) {
+            remove.mutate(pendingDeleteId);
+          }
+          setPendingDeleteId(null);
+        }}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </aside>
   );
 }

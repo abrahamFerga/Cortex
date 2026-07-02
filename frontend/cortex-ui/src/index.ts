@@ -42,6 +42,7 @@ export { TopBar } from "./components/TopBar";
 export { Sidebar } from "./components/Sidebar";
 export { GenericTab } from "./components/GenericTab";
 export { ModuleSwitcher } from "./components/ModuleSwitcher";
+export { ConfirmDialog } from "./components/ConfirmDialog";
 
 // Hooks
 export { useModules } from "./hooks/useModules";
@@ -80,7 +81,8 @@ export type { AguiEvent } from "./lib/agui";
 export { apiGet, apiSend, api, ApiError, uploadFile } from "./lib/api";
 export type { StoredFileInfo } from "./lib/api";
 export { hasPermission } from "./lib/permissions";
-export { withAttachmentRefs } from "./lib/attachments";
+export { withAttachmentRefs, parseAttachmentRefs } from "./lib/attachments";
+export type { AttachmentRef } from "./lib/attachments";
 export { createAgentConnection } from "./lib/signalr";
 export { runAgui } from "./lib/agui";
 // Active-module context + hook — let a host tab component read the module list / active module and switch it.

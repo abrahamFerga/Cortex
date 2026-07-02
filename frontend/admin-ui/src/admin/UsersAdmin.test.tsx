@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { UsersAdmin } from "./UsersAdmin";
 
@@ -69,11 +69,15 @@ describe("UsersAdmin", () => {
     expect(screen.getByText("sub-alice")).toBeTruthy();
   });
 
-  it("deactivates a user via PUT", async () => {
+  it("deactivates a user via PUT after confirming through the dialog", async () => {
     const fetchMock = stubApi();
     renderUsers();
 
     fireEvent.click(await screen.findByRole("button", { name: "Deactivate" }));
+
+    // Deactivation is confirmed through a dialog before the PUT is issued.
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Deactivate" }));
 
     await waitFor(() => {
       const put = fetchMock.mock.calls.find(
@@ -82,6 +86,21 @@ describe("UsersAdmin", () => {
       expect(put).toBeTruthy();
       expect(JSON.parse((put![1] as RequestInit).body as string)).toEqual({ isActive: false });
     });
+  });
+
+  it("does not deactivate when the confirmation is dismissed", async () => {
+    const fetchMock = stubApi();
+    renderUsers();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Deactivate" }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(
+      fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === "PUT"),
+    ).toBe(false);
   });
 
   it("offers custom roles for assignment and assigns one via POST", async () => {

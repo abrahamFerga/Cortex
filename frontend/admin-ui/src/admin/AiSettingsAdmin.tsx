@@ -70,7 +70,7 @@ export function AiSettingsAdmin() {
             onChange={(e) => setPrompt(e.target.value)}
             rows={5}
             placeholder={`Default: ${data.defaultSystemPrompt}`}
-            className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800"
+            className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800"
           />
           <p className="text-xs text-slate-400">Blank uses the deployment default. Module instructions are still appended per conversation.</p>
         </div>
@@ -85,7 +85,7 @@ export function AiSettingsAdmin() {
             onChange={(e) => setMaxTokens(e.target.value)}
             inputMode="numeric"
             placeholder={`Default: ${data.defaultMaxConversationTokens === 0 ? "unlimited" : data.defaultMaxConversationTokens}`}
-            className="w-48 rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800"
+            className="w-48 rounded border border-slate-300 bg-white px-2 py-1 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800"
           />
           <p className="text-xs text-slate-400">
             Max tokens a single conversation may consume before further turns are refused. 0 = unlimited; blank = default.
@@ -99,7 +99,7 @@ export function AiSettingsAdmin() {
           <button
             type="submit"
             disabled={tokensInvalid || save.isPending}
-            className="rounded bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-40"
+            className="focus-ring rounded bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-40"
           >
             {save.isPending ? "Saving…" : "Save"}
           </button>
@@ -111,7 +111,7 @@ export function AiSettingsAdmin() {
               setMaxTokens("");
               save.mutate({ prompt: "", maxTokens: "" });
             }}
-            className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300"
+            className="focus-ring rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300"
           >
             Reset to defaults
           </button>

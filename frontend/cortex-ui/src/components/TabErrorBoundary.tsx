@@ -50,7 +50,7 @@ export class TabErrorBoundary extends Component<
         <button
           type="button"
           onClick={this.reset}
-          className="rounded-md border border-red-300 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:text-red-200 dark:hover:bg-red-900/40"
+          className="focus-ring rounded-md border border-red-300 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:text-red-200 dark:hover:bg-red-900/40"
         >
           Try again
         </button>

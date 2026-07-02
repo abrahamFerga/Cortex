@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type AdminTenant } from "@cortex/ui";
+import { api, ConfirmDialog, type AdminTenant } from "@cortex/ui";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString();
@@ -7,6 +8,7 @@ function formatDate(iso: string): string {
 
 function TenantRow({ tenant }: { tenant: AdminTenant }) {
   const qc = useQueryClient();
+  const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
   const setActive = useMutation({
     mutationFn: (isActive: boolean) => api.admin.setTenantActive(tenant.id, isActive),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "tenants"] }),
@@ -33,8 +35,8 @@ function TenantRow({ tenant }: { tenant: AdminTenant }) {
       <button
         type="button"
         disabled={setActive.isPending}
-        onClick={() => setActive.mutate(!tenant.isActive)}
-        className={`rounded border px-2 py-1 text-xs font-medium disabled:opacity-40 ${
+        onClick={() => (tenant.isActive ? setConfirmingDeactivate(true) : setActive.mutate(true))}
+        className={`focus-ring rounded border px-2 py-1 text-xs font-medium disabled:opacity-40 ${
           tenant.isActive
             ? "border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20"
             : "border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-900/20"
@@ -42,6 +44,19 @@ function TenantRow({ tenant }: { tenant: AdminTenant }) {
       >
         {setActive.isPending ? "…" : tenant.isActive ? "Deactivate" : "Activate"}
       </button>
+
+      <ConfirmDialog
+        open={confirmingDeactivate}
+        title="Deactivate tenant"
+        body={`Deactivate ${tenant.name}? All of this tenant's users will be denied access.`}
+        confirmLabel="Deactivate"
+        tone="danger"
+        onConfirm={() => {
+          setConfirmingDeactivate(false);
+          setActive.mutate(false);
+        }}
+        onCancel={() => setConfirmingDeactivate(false)}
+      />
     </div>
   );
 }

@@ -9,7 +9,7 @@ function Toggle({ on, disabled, onChange }: { on: boolean; disabled: boolean; on
       aria-checked={on}
       disabled={disabled}
       onClick={() => onChange(!on)}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+      className={`focus-ring relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
         on ? "bg-brand-600" : "bg-slate-300 dark:bg-slate-600"
       }`}
     >

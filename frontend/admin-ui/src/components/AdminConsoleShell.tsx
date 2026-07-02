@@ -45,7 +45,7 @@ export function AdminConsoleShell() {
 
         <a
           href={WORKSPACE_URL}
-          className="text-sm font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+          className="focus-ring rounded text-sm font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
         >
           ← Workspace
         </a>

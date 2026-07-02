@@ -15,31 +15,59 @@ function canAdminister(permissions: string[]): boolean {
 // is hosted elsewhere.
 const ADMIN_URL = import.meta.env.VITE_ADMIN_URL ?? "/admin";
 
-export function TopBar() {
+interface TopBarProps {
+  /** Toggles the mobile navigation drawer. When omitted, the hamburger button is not rendered. */
+  onToggleSidebar?: () => void;
+  /** Whether the mobile drawer is open — drives the hamburger's aria-expanded. */
+  sidebarOpen?: boolean;
+}
+
+export function TopBar({ onToggleSidebar, sidebarOpen = false }: TopBarProps = {}) {
   const { data: me } = useMe();
   const { name = "Cortex", logo } = useBranding();
   const showAdmin = canAdminister(me?.permissions ?? []);
 
   return (
-    <header className="flex h-14 items-center gap-6 border-b border-slate-200 bg-white px-4 dark:border-slate-700 dark:bg-slate-900">
+    <header className="flex h-14 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:gap-6 dark:border-slate-700 dark:bg-slate-900">
+      {onToggleSidebar && (
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          aria-label="Open navigation"
+          aria-expanded={sidebarOpen}
+          className="focus-ring rounded-md p-1.5 text-slate-600 hover:bg-slate-100 md:hidden dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          <svg
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            className="h-5 w-5"
+            aria-hidden="true"
+          >
+            <path d="M3 5h14M3 10h14M3 15h14" />
+          </svg>
+        </button>
+      )}
       <div className="flex items-center gap-2">
         {logo ?? (
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-600 text-sm font-bold text-white">
             C
           </div>
         )}
-        <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+        <span className="hidden text-lg font-semibold tracking-tight text-slate-900 sm:inline dark:text-slate-100">
           {name}
         </span>
       </div>
 
       <ModuleSwitcher />
 
-      <nav className="flex items-center gap-1 text-sm">
+      <nav aria-label="Primary" className="flex items-center gap-1 text-sm">
         <NavLink
           to="/chat"
           className={({ isActive }) =>
-            `rounded-md px-3 py-1.5 font-medium ${
+            `focus-ring rounded-md px-3 py-1.5 font-medium ${
               isActive
                 ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
                 : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
@@ -51,14 +79,14 @@ export function TopBar() {
         {showAdmin && (
           <a
             href={ADMIN_URL}
-            className="rounded-md px-3 py-1.5 font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+            className="focus-ring rounded-md px-3 py-1.5 font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
           >
             Admin ↗
           </a>
         )}
       </nav>
 
-      <div className="ml-auto text-sm text-slate-600 dark:text-slate-300">
+      <div className="ml-auto hidden text-sm text-slate-600 sm:block dark:text-slate-300">
         {me?.displayName ?? "…"}
       </div>
     </header>

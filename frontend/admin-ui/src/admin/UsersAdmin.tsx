@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type AdminUser } from "@cortex/ui";
+import { api, ConfirmDialog, type AdminUser } from "@cortex/ui";
 
 function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
@@ -9,7 +9,7 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
       <button
         type="button"
         onClick={onRemove}
-        className="text-slate-400 hover:text-red-600"
+        className="focus-ring rounded text-slate-400 hover:text-red-600"
         aria-label={`Remove ${label}`}
       >
         ×
@@ -21,6 +21,7 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
 function UserCard({ user, allRoles }: { user: AdminUser; allRoles: string[] }) {
   const qc = useQueryClient();
   const [permInput, setPermInput] = useState("");
+  const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
   const invalidate = () => qc.invalidateQueries({ queryKey: ["admin", "users"] });
 
   // All tool permissions discovered from the security catalog, for quick granting.
@@ -63,8 +64,8 @@ function UserCard({ user, allRoles }: { user: AdminUser; allRoles: string[] }) {
           <button
             type="button"
             disabled={setActive.isPending}
-            onClick={() => setActive.mutate(!user.isActive)}
-            className={`rounded border px-2 py-0.5 text-xs font-medium disabled:opacity-40 ${
+            onClick={() => (user.isActive ? setConfirmingDeactivate(true) : setActive.mutate(true))}
+            className={`focus-ring rounded border px-2 py-0.5 text-xs font-medium disabled:opacity-40 ${
               user.isActive
                 ? "border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20"
                 : "border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-900/20"
@@ -88,7 +89,7 @@ function UserCard({ user, allRoles }: { user: AdminUser; allRoles: string[] }) {
             {availableRoles.length > 0 && (
               <select
                 aria-label="Add a role"
-                className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs dark:border-slate-600 dark:bg-slate-800"
+                className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800"
                 value=""
                 onChange={(e) => e.target.value && assignRole.mutate(e.target.value)}
               >
@@ -131,7 +132,7 @@ function UserCard({ user, allRoles }: { user: AdminUser; allRoles: string[] }) {
               value={permInput}
               onChange={(e) => setPermInput(e.target.value)}
               placeholder="tools.finance.summarize_spending"
-              className="flex-1 rounded border border-slate-300 bg-white px-2 py-1 font-mono text-xs dark:border-slate-600 dark:bg-slate-800"
+              className="flex-1 rounded border border-slate-300 bg-white px-2 py-1 font-mono text-xs focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800"
             />
             <datalist id={`perms-${user.id}`}>
               {grantable.map((p) => (
@@ -140,13 +141,26 @@ function UserCard({ user, allRoles }: { user: AdminUser; allRoles: string[] }) {
             </datalist>
             <button
               type="submit"
-              className="rounded bg-brand-600 px-3 py-1 text-xs font-medium text-white hover:bg-brand-500"
+              className="focus-ring rounded bg-brand-600 px-3 py-1 text-xs font-medium text-white hover:bg-brand-500"
             >
               Grant
             </button>
           </form>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmingDeactivate}
+        title="Deactivate user"
+        body={`Deactivate ${user.displayName ?? user.email}? They will be denied access until reactivated.`}
+        confirmLabel="Deactivate"
+        tone="danger"
+        onConfirm={() => {
+          setConfirmingDeactivate(false);
+          setActive.mutate(false);
+        }}
+        onCancel={() => setConfirmingDeactivate(false)}
+      />
     </div>
   );
 }

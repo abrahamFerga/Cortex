@@ -6,7 +6,7 @@ import {
   type AgentStreamEvent,
 } from "../lib/signalr";
 import { api, uploadFile, type StoredFileInfo } from "../lib/api";
-import { withAttachmentRefs } from "../lib/attachments";
+import { parseAttachmentRefs, withAttachmentRefs } from "../lib/attachments";
 import { Markdown } from "./Markdown";
 import { PendingApprovals } from "./PendingApprovals";
 
@@ -50,6 +50,13 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** Grows the composer with its content, capped at max-h-48 (192px) where it starts scrolling. */
+function autoGrow(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = `${Math.min(el.scrollHeight, 192)}px`;
+}
+
 export function ChatPanel({
   moduleId,
   suggestedPrompts,
@@ -64,6 +71,8 @@ export function ChatPanel({
   const [sessionTokens, setSessionTokens] = useState(0);
   const [attachments, setAttachments] = useState<StoredFileInfo[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [failedText, setFailedText] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const connectionRef = useRef<HubConnection | null>(null);
@@ -71,6 +80,11 @@ export function ChatPanel({
   const subscriptionRef = useRef<{ dispose: () => void } | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Whether the user is at (or near) the bottom of the transcript — auto-scroll only then.
+  const pinnedRef = useRef(true);
+  const prevMessageCountRef = useRef(0);
+  const copyTimerRef = useRef<number | undefined>(undefined);
 
   async function attachFiles(list: FileList | null) {
     if (!list || list.length === 0) return;
@@ -117,10 +131,21 @@ export function ChatPanel({
     };
   }, []);
 
-  // Keep the message list scrolled to the bottom.
+  // Keep the message list scrolled to the bottom — but only while the user is pinned there, so
+  // scrolling up to read isn't yanked back by streaming tokens. A send (message count grew) always
+  // snaps to the bottom to show the new turn.
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+    const grew = messages.length > prevMessageCountRef.current;
+    prevMessageCountRef.current = messages.length;
+    if (pinnedRef.current || grew) {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+    }
   }, [messages]);
+
+  // Resize the composer whenever its value changes (typing, and the clear after a send).
+  useEffect(() => {
+    autoGrow(textareaRef.current);
+  }, [input]);
 
   // Resume the selected conversation (load its history) — or reset for a new one — when the selection
   // changes. Skips when the selection already matches what's shown (e.g. the conversation we just created).
@@ -190,18 +215,47 @@ export function ChatPanel({
     setStatus("idle");
   }
 
+  // Copies a message's body (attachment refs stripped) and flips the button label for a moment.
+  async function copyMessage(id: string, body: string) {
+    try {
+      await navigator.clipboard.writeText(body);
+      setCopiedId(id);
+      window.clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = window.setTimeout(() => setCopiedId(null), 1500);
+    } catch {
+      // Clipboard access can be blocked (insecure context / permissions) — fail quietly.
+    }
+  }
+
+  // A turn failed before the assistant produced anything: drop the dead placeholder bubble and keep
+  // the sent text around so the error banner can offer a Retry.
+  function failTurn(assistantId: string, sentText: string, message: string) {
+    setMessages((prev) => prev.filter((m) => !(m.id === assistantId && m.text === "")));
+    setFailedText(sentText);
+    setError(message);
+  }
+
   function send(explicit?: string) {
     const typed = (explicit ?? input).trim();
-    const connection = connectionRef.current;
-    if ((!typed && attachments.length === 0) || status === "streaming" || uploading || !connection) {
+    if ((!typed && attachments.length === 0) || status === "streaming" || uploading || !connectionRef.current) {
       return;
     }
 
     const text = withAttachmentRefs(typed, attachments);
 
-    setError(null);
     setInput("");
     setAttachments([]);
+    sendText(text);
+  }
+
+  function sendText(text: string) {
+    const connection = connectionRef.current;
+    if (!connection || status === "streaming") {
+      return;
+    }
+
+    setError(null);
+    setFailedText(null);
 
     const userMessage: ChatMessage = {
       id: newId(),
@@ -216,7 +270,12 @@ export function ChatPanel({
       text: "",
       tools: [],
     };
-    setMessages((prev) => [...prev, userMessage, assistantMessage]);
+    // On a Retry the failed user turn is still the last bubble — don't render it twice.
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      const alreadyShown = last?.role === "user" && last.text === text;
+      return alreadyShown ? [...prev, assistantMessage] : [...prev, userMessage, assistantMessage];
+    });
     setStatus("streaming");
 
     const request = {
@@ -269,7 +328,7 @@ export function ChatPanel({
             }
             break;
           case "Error":
-            setError(event.error ?? "Unknown stream error");
+            failTurn(assistantId, text, event.error ?? "Unknown stream error");
             break;
         }
       },
@@ -279,7 +338,7 @@ export function ChatPanel({
       },
       error: (e: unknown) => {
         subscriptionRef.current = null;
-        setError(String(e));
+        failTurn(assistantId, text, String(e));
         setStatus("idle");
       },
     });
@@ -304,14 +363,21 @@ export function ChatPanel({
             type="button"
             onClick={() => (onNewChat ? onNewChat() : newChat())}
             disabled={status === "streaming" || messages.length === 0}
-            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="focus-ring rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             New chat
           </button>
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto pr-2">
+      <div
+        ref={scrollRef}
+        className="flex-1 space-y-4 overflow-y-auto pr-2"
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        }}
+      >
         {messages.length === 0 && (
           <div className="text-sm text-slate-400">
             <p>Start a conversation with the {moduleId} agent.</p>
@@ -324,7 +390,7 @@ export function ChatPanel({
                     type="button"
                     onClick={() => send(prompt)}
                     disabled={status === "streaming"}
-                    className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-600 hover:border-brand-400 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:border-brand-500 dark:hover:text-brand-300"
+                    className="focus-ring rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-600 hover:border-brand-400 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:border-brand-500 dark:hover:text-brand-300"
                   >
                     {prompt}
                   </button>
@@ -333,53 +399,112 @@ export function ChatPanel({
             )}
           </div>
         )}
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={m.role === "user" ? "text-right" : "text-left"}
-          >
+        {messages.map((m) => {
+          const { body, files } = parseAttachmentRefs(m.text);
+          return (
             <div
-              className={
-                m.role === "user"
-                  ? "inline-block max-w-[80%] rounded-lg bg-brand-600 px-3 py-2 text-left text-sm text-white"
-                  : "inline-block max-w-[80%] rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-900 dark:bg-slate-800 dark:text-slate-100"
-              }
+              key={m.id}
+              className={m.role === "user" ? "group text-right" : "group text-left"}
             >
-              {m.tools.length > 0 && (
-                <div className="mb-1 flex flex-wrap gap-1">
-                  {m.tools.map((tool, i) => (
-                    <span
-                      key={`${tool}-${i}`}
-                      className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-                    >
-                      used tool: {tool}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {m.role === "assistant" ? (
-                m.text ? (
-                  <div className="text-sm leading-relaxed">
-                    <Markdown>{m.text}</Markdown>
+              <div
+                className={
+                  m.role === "user"
+                    ? "inline-block max-w-[80%] break-words rounded-lg bg-brand-600 px-3 py-2 text-left text-sm text-white"
+                    : "inline-block max-w-[80%] break-words rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-900 dark:bg-slate-800 dark:text-slate-100"
+                }
+              >
+                {m.tools.length > 0 && (
+                  <div className="mb-1 flex flex-wrap gap-1">
+                    {m.tools.map((tool, i) => (
+                      <span
+                        key={`${tool}-${i}`}
+                        className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                      >
+                        used tool: {tool}
+                      </span>
+                    ))}
                   </div>
+                )}
+                {m.role === "assistant" ? (
+                  body ? (
+                    <div className="min-w-0 text-sm leading-relaxed [overflow-wrap:anywhere]">
+                      <Markdown>{body}</Markdown>
+                    </div>
+                  ) : (
+                    <span
+                      role="status"
+                      aria-label="Assistant is responding"
+                      className="inline-flex items-center gap-1"
+                    >
+                      <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s] motion-reduce:animate-none" />
+                      <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s] motion-reduce:animate-none" />
+                      <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:0s] motion-reduce:animate-none" />
+                    </span>
+                  )
                 ) : (
-                  <span>…</span>
-                )
-              ) : (
-                <span className="whitespace-pre-wrap">{m.text}</span>
-              )}
-              {m.usage && m.usage.total > 0 && (
-                <div className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                  {formatTokens(m.usage.total)} tokens · ↑{formatTokens(m.usage.input)} ↓{formatTokens(m.usage.output)}
-                </div>
+                  <span className="whitespace-pre-wrap">{body}</span>
+                )}
+                {files.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {files.map((f) => (
+                      <a
+                        key={f.id}
+                        href={api.files.downloadUrl(f.id)}
+                        download
+                        target="_blank"
+                        rel="noreferrer"
+                        className={
+                          m.role === "user"
+                            ? "focus-ring inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs text-white"
+                            : "focus-ring inline-flex items-center gap-1 rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                        }
+                      >
+                        <span className="max-w-[16rem] truncate">{f.fileName}</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+                {m.usage && m.usage.total > 0 && (
+                  <div className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                    {formatTokens(m.usage.total)} tokens · ↑{formatTokens(m.usage.input)} ↓{formatTokens(m.usage.output)}
+                  </div>
+                )}
+              </div>
+              {m.text && (
+                <span aria-live="polite">
+                  <button
+                    type="button"
+                    aria-label="Copy message"
+                    onClick={() => void copyMessage(m.id, body)}
+                    className="focus-ring mx-1 rounded px-1.5 py-0.5 align-bottom text-[11px] font-medium text-slate-400 opacity-0 transition hover:text-slate-600 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:text-slate-300"
+                  >
+                    {copiedId === m.id ? "Copied" : "Copy"}
+                  </button>
+                </span>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {error && (
-        <p className="mt-2 text-sm text-red-600">{error}</p>
+        <div className="mt-2 flex items-center gap-2">
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          {failedText && (
+            <button
+              type="button"
+              onClick={() => {
+                const text = failedText;
+                setError(null);
+                setFailedText(null);
+                sendText(text);
+              }}
+              className="focus-ring rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Retry
+            </button>
+          )}
+        </div>
       )}
 
       <div className="mt-3">
@@ -398,7 +523,7 @@ export function ChatPanel({
               <button
                 type="button"
                 aria-label={`Remove ${a.fileName}`}
-                className="ml-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="focus-ring ml-0.5 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))}
               >
                 ×
@@ -409,7 +534,7 @@ export function ChatPanel({
       )}
 
       <form
-        className="flex gap-2"
+        className="flex items-end gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           send();
@@ -429,7 +554,7 @@ export function ChatPanel({
           title="Attach a file"
           disabled={uploading || status === "streaming"}
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          className="focus-ring rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
         >
           {uploading ? (
             <span className="text-xs">…</span>
@@ -449,25 +574,38 @@ export function ChatPanel({
             </svg>
           )}
         </button>
-        <input
+        <textarea
+          ref={textareaRef}
+          rows={1}
           aria-label="Message"
-          className="flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          className="max-h-48 flex-1 resize-none overflow-y-auto rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
           placeholder="Type a message…"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            autoGrow(e.currentTarget);
+          }}
+          onKeyDown={(e) => {
+            // Enter sends; Shift+Enter falls through to insert a newline. IME composition
+            // (isComposing) must not send — Enter there just confirms the composed text.
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              send();
+            }
+          }}
         />
         {status === "streaming" ? (
           <button
             type="button"
             onClick={stop}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            className="focus-ring rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
             Stop
           </button>
         ) : (
           <button
             type="submit"
-            className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500"
+            className="focus-ring rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500"
           >
             Send
           </button>

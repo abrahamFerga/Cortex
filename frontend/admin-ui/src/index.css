@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Shared keyboard-focus indicator for interactive elements (buttons, links, selects). */
+@layer components {
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-slate-900;
+  }
+}
+
 /* Brand accent defaults (Tailwind indigo), shared with @cortex/ui. Override --cortex-brand-* to rebrand. */
 :root {
   --cortex-brand-50: 238 242 255;

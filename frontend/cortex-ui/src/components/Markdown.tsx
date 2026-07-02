@@ -29,7 +29,7 @@ function CodeBlock({ children }: { children: ReactNode }) {
         type="button"
         onClick={copy}
         aria-label="Copy code"
-        className="absolute right-1 top-1 rounded bg-white/10 px-1.5 py-0.5 text-[11px] font-medium text-slate-200 opacity-0 transition hover:bg-white/20 focus:opacity-100 group-hover/code:opacity-100"
+        className="focus-ring absolute right-1 top-1 rounded bg-white/10 px-1.5 py-0.5 text-[11px] font-medium text-slate-200 opacity-0 transition hover:bg-white/20 focus:opacity-100 group-hover/code:opacity-100"
       >
         {copied ? "Copied!" : "Copy"}
       </button>
@@ -52,7 +52,12 @@ export function Markdown({ children }: { children: string }) {
         ol: ({ children }) => <ol className="mb-2 list-decimal pl-5 last:mb-0">{children}</ol>,
         li: ({ children }) => <li className="mb-0.5">{children}</li>,
         a: ({ children, href }) => (
-          <a className="underline" href={href} target="_blank" rel="noreferrer noopener">
+          <a
+            className="focus-ring rounded text-brand-600 underline underline-offset-2 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+            href={href}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
             {children}
           </a>
         ),

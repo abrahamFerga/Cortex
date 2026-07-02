@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type PermissionInfo, type RoleInfo } from "@cortex/ui";
+import { api, ConfirmDialog, type PermissionInfo, type RoleInfo } from "@cortex/ui";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Schema-driven role editor.
@@ -63,7 +63,7 @@ function Chip({ label, onRemove }: { label: string; onRemove?: () => void }) {
     <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-300">
       {label}
       {onRemove && (
-        <button type="button" onClick={onRemove} className="text-slate-400 hover:text-red-600" aria-label={`Remove ${label}`}>
+        <button type="button" onClick={onRemove} className="focus-ring rounded text-slate-400 hover:text-red-600" aria-label={`Remove ${label}`}>
           ×
         </button>
       )}
@@ -86,6 +86,7 @@ function RoleEditorPanel({
   const original = useMemo(() => new Set(role.permissions), [role.permissions]);
   const [draft, setDraft] = useState<Set<string>>(() => new Set(role.permissions));
   const [extraInput, setExtraInput] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   // Re-sync the draft whenever the selected role (or its server state) changes.
   useEffect(() => setDraft(new Set(role.permissions)), [role.role, role.permissions]);
@@ -155,12 +156,8 @@ function RoleEditorPanel({
             <button
               type="button"
               disabled={del.isPending}
-              onClick={() => {
-                if (window.confirm(`Delete the '${role.role}' role? It is removed from everyone who has it.`)) {
-                  del.mutate();
-                }
-              }}
-              className="rounded border border-red-300 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-40 dark:border-red-800 dark:hover:bg-red-900/20"
+              onClick={() => setConfirmingDelete(true)}
+              className="focus-ring rounded border border-red-300 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-40 dark:border-red-800 dark:hover:bg-red-900/20"
             >
               {del.isPending ? "Deleting…" : "Delete role"}
             </button>
@@ -169,7 +166,7 @@ function RoleEditorPanel({
             type="button"
             disabled={!dirty || save.isPending}
             onClick={() => setDraft(new Set(original))}
-            className="rounded border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300"
+            className="focus-ring rounded border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300"
           >
             Reset
           </button>
@@ -177,7 +174,7 @@ function RoleEditorPanel({
             type="button"
             disabled={!dirty || save.isPending}
             onClick={() => save.mutate()}
-            className="rounded bg-brand-600 px-3 py-1 text-xs font-medium text-white hover:bg-brand-500 disabled:opacity-40"
+            className="focus-ring rounded bg-brand-600 px-3 py-1 text-xs font-medium text-white hover:bg-brand-500 disabled:opacity-40"
           >
             {save.isPending ? "Saving…" : "Save changes"}
           </button>
@@ -197,7 +194,7 @@ function RoleEditorPanel({
               <button
                 type="button"
                 onClick={() => setGroup(group, !all)}
-                className="text-xs font-medium text-brand-600 hover:text-brand-500"
+                className="focus-ring rounded text-xs font-medium text-brand-600 hover:text-brand-500"
               >
                 {all ? "Clear all" : "Select all"}
               </button>
@@ -210,7 +207,7 @@ function RoleEditorPanel({
                 >
                   <input
                     type="checkbox"
-                    className="mt-0.5"
+                    className="focus-ring mt-0.5"
                     checked={draft.has(p.permission)}
                     onChange={(e) => toggle(p.permission, e.target.checked)}
                   />
@@ -249,13 +246,26 @@ function RoleEditorPanel({
             value={extraInput}
             onChange={(e) => setExtraInput(e.target.value)}
             placeholder="platform.* or tools.finance.summarize_spending"
-            className="flex-1 rounded border border-slate-300 bg-white px-2 py-1 font-mono text-xs dark:border-slate-600 dark:bg-slate-800"
+            className="flex-1 rounded border border-slate-300 bg-white px-2 py-1 font-mono text-xs focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800"
           />
-          <button type="submit" className="rounded bg-slate-700 px-3 py-1 text-xs font-medium text-white hover:bg-slate-600">
+          <button type="submit" className="focus-ring rounded bg-slate-700 px-3 py-1 text-xs font-medium text-white hover:bg-slate-600">
             Add
           </button>
         </form>
       </section>
+
+      <ConfirmDialog
+        open={confirmingDelete}
+        title="Delete role"
+        body={`Delete the '${role.role}' role? It is removed from everyone who has it.`}
+        confirmLabel="Delete role"
+        tone="danger"
+        onConfirm={() => {
+          setConfirmingDelete(false);
+          del.mutate();
+        }}
+        onCancel={() => setConfirmingDelete(false)}
+      />
     </div>
   );
 }
@@ -304,7 +314,7 @@ function CreateRoleForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="auditor"
-          className="w-full rounded border border-slate-300 bg-white px-2 py-1 font-mono text-sm dark:border-slate-600 dark:bg-slate-800"
+          className="w-full rounded border border-slate-300 bg-white px-2 py-1 font-mono text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800"
         />
         <p className={`mt-1 text-xs ${name && !nameValid ? "text-red-600" : "text-slate-400"}`}>
           Lowercase letter, then lowercase letters, digits, or underscores (2–64 chars).
@@ -317,7 +327,7 @@ function CreateRoleForm({
           value={permsInput}
           onChange={(e) => setPermsInput(e.target.value)}
           placeholder="platform.audit.view chat.use"
-          className="w-full rounded border border-slate-300 bg-white px-2 py-1 font-mono text-xs dark:border-slate-600 dark:bg-slate-800"
+          className="w-full rounded border border-slate-300 bg-white px-2 py-1 font-mono text-xs focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800"
         />
         <datalist id="role-perm-suggestions">
           {suggestions.map((p) => (
@@ -334,14 +344,14 @@ function CreateRoleForm({
         <button
           type="submit"
           disabled={!canCreate || create.isPending}
-          className="rounded bg-brand-600 px-3 py-1 text-xs font-medium text-white hover:bg-brand-500 disabled:opacity-40"
+          className="focus-ring rounded bg-brand-600 px-3 py-1 text-xs font-medium text-white hover:bg-brand-500 disabled:opacity-40"
         >
           {create.isPending ? "Creating…" : "Create role"}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-600 dark:text-slate-300"
+          className="focus-ring rounded border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-600 dark:text-slate-300"
         >
           Cancel
         </button>
@@ -389,7 +399,7 @@ export function RolesEditor() {
               setCreating(false);
               setSelected(r.role);
             }}
-            className={`rounded-md px-3 py-1.5 font-mono text-xs font-medium transition-colors ${
+            className={`focus-ring rounded-md px-3 py-1.5 font-mono text-xs font-medium transition-colors ${
               !creating && activeRole?.role === r.role
                 ? "bg-brand-600 text-white"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
@@ -403,7 +413,7 @@ export function RolesEditor() {
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className={`rounded-md border border-dashed px-3 py-1.5 text-xs font-medium transition-colors ${
+          className={`focus-ring rounded-md border border-dashed px-3 py-1.5 text-xs font-medium transition-colors ${
             creating
               ? "border-brand-400 bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-200"
               : "border-slate-300 text-slate-500 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"

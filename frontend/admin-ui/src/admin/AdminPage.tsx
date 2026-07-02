@@ -22,7 +22,7 @@ const SECTIONS = [
 ];
 
 function subNavClass({ isActive }: { isActive: boolean }): string {
-  const base = "block rounded-md px-3 py-2 text-sm font-medium transition-colors";
+  const base = "focus-ring block rounded-md px-3 py-2 text-sm font-medium transition-colors";
   return isActive
     ? `${base} bg-brand-600 text-white`
     : `${base} text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800`;

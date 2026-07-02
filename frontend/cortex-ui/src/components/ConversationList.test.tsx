@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConversationList } from "./ConversationList";
 
@@ -61,11 +61,14 @@ describe("ConversationList", () => {
 
   it("deletes the active conversation after confirmation and resets the selection", async () => {
     const fetchMock = stubFetch();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const { onNew } = renderList({ selectedId: "c1" });
 
     await screen.findByText("Summarize my spending");
     fireEvent.click(screen.getAllByRole("button", { name: "Delete conversation" })[0]);
+
+    // The confirmation dialog opens; confirming issues the delete.
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
 
     // The owner-scoped DELETE is issued for the selected conversation…
     await waitFor(() =>
@@ -98,13 +101,16 @@ describe("ConversationList", () => {
 
   it("does not delete when the confirmation is dismissed", async () => {
     const fetchMock = stubFetch();
-    vi.spyOn(window, "confirm").mockReturnValue(false);
     renderList({ selectedId: "c1" });
 
     await screen.findByText("Summarize my spending");
     fireEvent.click(screen.getAllByRole("button", { name: "Delete conversation" })[0]);
 
-    // No DELETE is sent when the user cancels the confirm.
+    // Cancelling the dialog closes it and sends no DELETE.
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(
       fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === "DELETE"),
     ).toBe(false);

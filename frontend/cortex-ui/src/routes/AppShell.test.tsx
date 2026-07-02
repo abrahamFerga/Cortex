@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "./AppShell";
@@ -10,7 +10,10 @@ const manifest = [
   {
     id: "finance",
     displayName: "Finance",
-    tabs: [{ id: "transactions", label: "Transactions", route: "/finance/transactions" }],
+    tabs: [
+      { id: "transactions", label: "Transactions", route: "/finance/transactions" },
+      { id: "reports", label: "Reports", route: "/finance/reports" },
+    ],
   },
 ];
 
@@ -54,7 +57,7 @@ function stubModulesError(status: number) {
 
 function renderAt(path: string) {
   const Board = ({ moduleId, tab }: ModuleTabProps) => <div>{`board:${moduleId}:${tab.id}`}</div>;
-  const finance = defineModule("finance", { tabs: { transactions: Board } });
+  const finance = defineModule("finance", { tabs: { transactions: Board, reports: Board } });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
@@ -113,6 +116,20 @@ describe("AppShell deep-linking", () => {
     renderAt("/");
 
     expect(await screen.findByText("Can't reach the Cortex API")).toBeTruthy();
+  });
+
+  it("updates the document title when navigating to a module tab", async () => {
+    stubApi();
+    renderAt("/finance/transactions");
+    await screen.findByText("board:finance:transactions");
+
+    // The deep-linked tab names the page: "<tab label> · <product name>".
+    expect(document.title).toBe("Transactions · Cortex");
+
+    // In-app navigation to another module tab retitles the document.
+    fireEvent.click(screen.getByRole("link", { name: "Reports" }));
+    await screen.findByText("board:finance:reports");
+    expect(document.title).toBe("Reports · Cortex");
   });
 
   it("exposes a skip-to-content link and a labelled main landmark", async () => {
