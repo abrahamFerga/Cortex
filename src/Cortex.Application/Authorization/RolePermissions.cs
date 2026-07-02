@@ -24,10 +24,23 @@ public static class RolePermissions
             Permissions.ManageAiSettings,
             Permissions.ViewAuditLog,
             "chat.*",
+            "files.*",
+            "tools.documents.*",
         ],
 
-        // user can chat and see their conversations.
-        [Roles.User] = [Permissions.UseChat, Permissions.ViewConversations],
+        // user can chat, see their conversations, attach files, and use the platform's read-only
+        // document tools (extract text, list own files, generate a PDF). Module tools stay opt-in.
+        [Roles.User] =
+        [
+            Permissions.UseChat,
+            Permissions.ViewConversations,
+            Permissions.UploadFiles,
+            Permissions.ReadFiles,
+            "tools.documents.read_document",
+            "tools.documents.generate_pdf",
+            "tools.documents.list_documents",
+            "tools.documents.ocr_document",
+        ],
 
         // guest is read-only.
         [Roles.Guest] = [Permissions.ViewConversations],

@@ -79,6 +79,54 @@ describe("ChatPanel", () => {
     expect(screen.getByRole("button", { name: "Send" })).toBeTruthy();
   });
 
+  it("uploads an attachment, shows its chip, and sends the message with the file reference", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes("/api/files") && init?.method === "POST") {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({ id: "f-123", fileName: "brief.pdf", contentType: "application/pdf", sizeBytes: 2048 }),
+          } as unknown as Response);
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ permissions: [] }) } as unknown as Response);
+      }),
+    );
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ChatPanel moduleId="legal" />
+      </QueryClientProvider>,
+    );
+
+    // Pick a file through the (hidden) input behind the paperclip button.
+    const file = new File(["%PDF-1.7 fake"], "brief.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText("Attach file"), { target: { files: [file] } });
+
+    // The chip appears once the upload resolves.
+    expect(await screen.findByText("brief.pdf")).toBeTruthy();
+
+    // Sending includes the typed text plus the attachment reference the document tools consume.
+    fireEvent.change(screen.getByRole("textbox", { name: "Message" }), {
+      target: { value: "Store this as part of the case of Julia Assange" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(mockConnection.stream).toHaveBeenCalledWith(
+      "Stream",
+      expect.objectContaining({
+        moduleId: "legal",
+        message: expect.stringContaining("file id: f-123"),
+      }),
+    );
+
+    // The chip row clears after sending.
+    expect(screen.queryByLabelText("Attachments")).toBeNull();
+  });
+
   it("resumes a conversation by loading and rendering its message history", async () => {
     vi.stubGlobal(
       "fetch",

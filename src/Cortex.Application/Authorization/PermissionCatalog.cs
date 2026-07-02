@@ -13,6 +13,7 @@ public static class PermissionCatalog
 {
     public const string PlatformCategory = "Platform administration";
     public const string ChatCategory = "Chat & agents";
+    public const string FilesCategory = "Files & documents";
 
     /// <summary>Every built-in (non-module) permission, with a human description for the dashboard.</summary>
     public static readonly IReadOnlyList<PermissionInfo> Platform =
@@ -26,5 +27,11 @@ public static class PermissionCatalog
         new(Permissions.UseChat, ChatCategory, "Start conversations and message the agent."),
         new(Permissions.ViewConversations, ChatCategory, "Read existing conversation history."),
         new(Permissions.ManageApprovals, ChatCategory, "Approve or reject side-effecting tool calls (human-in-the-loop)."),
+        new(Permissions.UploadFiles, FilesCategory, "Upload files (chat attachments) to the tenant file store."),
+        new(Permissions.ReadFiles, FilesCategory, "Download files from the tenant file store."),
+        new("tools.documents.read_document", FilesCategory, "Agent tool: extract the text of a stored PDF or text file."),
+        new("tools.documents.generate_pdf", FilesCategory, "Agent tool: generate a PDF document and store it."),
+        new("tools.documents.list_documents", FilesCategory, "Agent tool: list the caller's stored files."),
+        new("tools.documents.ocr_document", FilesCategory, "Agent tool: OCR a scanned document (requires a configured OCR engine)."),
     ];
 }

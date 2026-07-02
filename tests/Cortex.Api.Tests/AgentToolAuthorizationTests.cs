@@ -47,8 +47,10 @@ public sealed class AgentToolAuthorizationTests : IClassFixture<CortexApiFactory
         // The plain user role holds chat.use but NOT tools.test.echo — the same prompt must not call the tool.
         var events = await ChatAsync(ClientAs("user", "tool-user"), "please use the echo tool");
 
-        // The tool was filtered out before the model saw it, so it was never invoked — the security guarantee.
-        Assert.DoesNotContain(events, e => e.Type == "ToolInvoked");
+        // The tool was filtered out before the model saw it, so it was never invoked — the security
+        // guarantee. (The user baseline legitimately includes the platform document tools, so other
+        // tool invocations may occur; the forbidden module tool must not.)
+        Assert.DoesNotContain(events, e => e.Type == "ToolInvoked" && e.ToolName == "echo");
         // ...and the turn still completes normally (as plain text).
         Assert.Contains(events, e => e.Type == "Completed");
     }

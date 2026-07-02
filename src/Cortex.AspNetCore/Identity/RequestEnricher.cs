@@ -79,7 +79,15 @@ public sealed class RequestEnricher(
                 Email = email ?? subject,
                 DisplayName = name,
             };
-            user.Roles.Add(new UserRole { TenantId = tenant.Id, UserId = user.Id, Role = Roles.User });
+            // Default the new user to the "user" role ONLY when the token asserts no roles of its own.
+            // A principal whose IdP already scopes it (e.g. "guest") must not silently escalate to the
+            // user baseline via a DB role the platform invented.
+            var hasTokenRoles = principal.FindAll(ClaimTypes.Role).Concat(principal.FindAll("roles")).Any();
+            if (!hasTokenRoles)
+            {
+                user.Roles.Add(new UserRole { TenantId = tenant.Id, UserId = user.Id, Role = Roles.User });
+            }
+
             db.Users.Add(user);
             await db.SaveChangesAsync(cancellationToken);
 

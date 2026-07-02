@@ -22,6 +22,11 @@
     <PackageReference Include="Microsoft.Agents.AI.OpenAI" />
     <PackageReference Include="Azure.AI.OpenAI" />
     <PackageReference Include="Azure.Identity" />
+
+    <!-- Documents & files: PdfPig (Apache-2.0) reads AND generates PDFs with zero native deps;
+         Azure.Storage.Blobs (MIT) backs the production file store. -->
+    <PackageReference Include="PdfPig" />
+    <PackageReference Include="Azure.Storage.Blobs" />
   </ItemGroup>
 
   <ItemGroup>

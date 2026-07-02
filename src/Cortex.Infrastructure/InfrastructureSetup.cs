@@ -4,6 +4,7 @@ using Cortex.Application.Approvals;
 using Cortex.Application.Auditing;
 using Cortex.Application.Authorization;
 using Cortex.Application.Conversations;
+using Cortex.Application.Files;
 using Cortex.Application.Modules;
 using Cortex.Application.Usage;
 using Cortex.Core.Identity;
@@ -15,6 +16,8 @@ using Cortex.Infrastructure.Auditing;
 using Cortex.Infrastructure.Authorization;
 using Cortex.Infrastructure.Context;
 using Cortex.Infrastructure.Conversations;
+using Cortex.Infrastructure.Documents;
+using Cortex.Infrastructure.Files;
 using Cortex.Infrastructure.Modules;
 using Cortex.Infrastructure.Persistence;
 using Cortex.Infrastructure.Persistence.Interceptors;
@@ -41,8 +44,35 @@ public static class InfrastructureSetup
         AddAuthorization(services);
         AddAuditing(services);
         AddAgentStack(builder);
+        AddFilesAndDocuments(builder);
 
         return builder;
+    }
+
+    private static void AddFilesAndDocuments(IHostApplicationBuilder builder)
+    {
+        var services = builder.Services;
+
+        services.Configure<FileStorageOptions>(builder.Configuration.GetSection(FileStorageOptions.SectionName));
+        var fileOptions = builder.Configuration.GetSection(FileStorageOptions.SectionName).Get<FileStorageOptions>()
+            ?? new FileStorageOptions();
+        fileOptions.ThrowIfInvalid(); // fail fast on AzureBlob without a connection string
+
+        if (string.Equals(fileOptions.Provider, "AzureBlob", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IFileBlobStorage, AzureBlobFileStorage>();
+        }
+        else
+        {
+            services.AddSingleton<IFileBlobStorage, LocalFileBlobStorage>();
+        }
+
+        services.AddScoped<IFileStore, FileStore>();
+
+        // Platform document tools, appended to every module's agent (each permission-gated). The
+        // ocr_document tool appears only when the host registers an IOcrEngine implementation.
+        services.AddScoped<DocumentTools>();
+        services.AddSingleton<IPlatformToolSource, DocumentToolSource>();
     }
 
     private static void AddRequestContext(IServiceCollection services)

@@ -195,8 +195,10 @@ public sealed class ApiIntegrationTests(IntegrationFixture fixture)
         // The run still completes (chat.use is enough to chat) — the tool is filtered, not the request refused…
         Assert.Contains("RUN_FINISHED", sse, StringComparison.Ordinal);
         Assert.DoesNotContain("RUN_ERROR", sse, StringComparison.Ordinal);
-        // …but no tool is invoked, because this user may not call summarize_spending.
-        Assert.DoesNotContain("TOOL_CALL_START", sse, StringComparison.Ordinal);
+        // …but the finance tool is never invoked, because this user may not call summarize_spending.
+        // (The user baseline legitimately includes the platform document tools, so a TOOL_CALL for
+        // one of those may occur; the forbidden module tool must not.)
+        Assert.DoesNotContain("summarize_spending", sse, StringComparison.Ordinal);
     }
 
     [Fact]

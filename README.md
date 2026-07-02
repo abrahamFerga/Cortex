@@ -24,6 +24,7 @@ ship it. It unifies the patterns proven in two earlier apps — **NutriForge** (
 | **Modules, not forks** | A vertical implements `IModule`: a manifest of tools + tabs, its own services and endpoints. The host discovers and loads them. |
 | **Manifest-first** | A module declares its tools, tabs, permissions, and agent instructions *statically*, before any of its code runs. |
 | **Tool security before the model call** | The agent runner filters tools by the caller's permissions **before** building the request — the LLM never sees the schema of a tool the user may not call. |
+| **Documents built in** | Every module's agent gets platform **document tools** — read PDFs (PdfPig, Apache-2.0), generate PDFs, list files, pluggable OCR — over a tenant-scoped file store with chat attachments in the UI. See [docs/DOCUMENT_TOOLS.md](docs/DOCUMENT_TOOLS.md). |
 | **Audit everything** | Every tool invocation, data change, and token spend is written to a separate, append-only audit database. |
 | **Multi-tenant by default** | Row-level isolation via EF Core global query filters on `TenantId` — impossible to forget. |
 | **Provider-swappable AI** | OpenAI / Azure OpenAI / Ollama via one config section — plus a dependency-free **Mock** provider so the chatbot (and even real, audited tool calls + the approval gate) work with zero setup. |
@@ -153,6 +154,7 @@ chatbot and admin features), see the **`run-cortex`** skill in `.claude/skills/`
 | `/hubs/agent` (SignalR, method `Stream`) | Streamed agent turn (WebSocket) |
 | `GET /api/admin/security/catalog` | The permission map: platform perms + every module tool |
 | `GET /api/admin/users`, `…/roles`, `…/usage`, `…/audit/tool-calls` | RBAC management, token usage, audit log |
+| `POST /api/files`, `GET /api/files/{id}`, `GET /api/files/mine` | Tenant-scoped file store (chat attachments; local disk or Azure Blob — see [docs/DOCUMENT_TOOLS.md](docs/DOCUMENT_TOOLS.md)) |
 | `GET/POST /api/channels/whatsapp/webhook` | WhatsApp channel (Meta Cloud API webhook; HMAC-verified, off by default — see [docs/WHATSAPP_CHANNEL.md](docs/WHATSAPP_CHANNEL.md)) |
 | `GET /api/finance/transactions`, `/api/legal/clauses`, `/api/nutrition/foods` | Sample-module endpoints |
 | `GET /health`, `/alive` | Aspire health / liveness (never call the LLM) |

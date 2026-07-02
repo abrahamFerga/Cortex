@@ -22,6 +22,13 @@ public static class Permissions
     /// <summary>Approve or reject side-effecting tool calls the agent was blocked from auto-running (HITL).</summary>
     public const string ManageApprovals = "chat.approvals.manage";
 
+    // Files & documents (chat attachments, agent document tools)
+    public const string UploadFiles = "files.upload";
+    public const string ReadFiles = "files.read";
+
+    /// <summary>The pseudo-module id platform document tools are namespaced under (tools.documents.*).</summary>
+    public const string DocumentsToolModule = "documents";
+
     /// <summary>
     /// Permissions reserved for the platform operator (system_admin): they act ACROSS tenants, so a
     /// tenant-scoped admin must never hold them. The RBAC editor refuses to grant these — or any wildcard that

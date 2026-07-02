@@ -77,8 +77,10 @@ export type { AgentStreamEvent } from "./lib/signalr";
 export type { AguiEvent } from "./lib/agui";
 
 // API / lib utilities
-export { apiGet, apiSend, api, ApiError } from "./lib/api";
+export { apiGet, apiSend, api, ApiError, uploadFile } from "./lib/api";
+export type { StoredFileInfo } from "./lib/api";
 export { hasPermission } from "./lib/permissions";
+export { withAttachmentRefs } from "./lib/attachments";
 export { createAgentConnection } from "./lib/signalr";
 export { runAgui } from "./lib/agui";
 // Active-module context + hook — let a host tab component read the module list / active module and switch it.

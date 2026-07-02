@@ -26,7 +26,7 @@ public sealed class ApprovalExecutorTests
             Name = "record_transaction",
             Permission = "tools.demo.record_transaction",
             Function = fn,
-        })]);
+        })], platformSources: []);
 
         var approval = new PendingApproval
         {
@@ -47,7 +47,7 @@ public sealed class ApprovalExecutorTests
     [Fact]
     public async Task Execute_UnknownTool_Fails()
     {
-        var registry = new ToolRegistry([]);
+        var registry = new ToolRegistry([], platformSources: []);
 
         var approval = new PendingApproval
         {

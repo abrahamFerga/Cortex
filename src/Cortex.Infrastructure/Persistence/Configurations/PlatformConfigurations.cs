@@ -139,6 +139,20 @@ internal sealed class ConversationMessageConfiguration : IEntityTypeConfiguratio
     }
 }
 
+internal sealed class StoredFileConfiguration : IEntityTypeConfiguration<StoredFile>
+{
+    public void Configure(EntityTypeBuilder<StoredFile> b)
+    {
+        b.ToTable("stored_files");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.FileName).HasMaxLength(300).IsRequired();
+        b.Property(x => x.ContentType).HasMaxLength(200).IsRequired();
+        b.Property(x => x.Sha256).HasMaxLength(64).IsRequired();
+        b.Property(x => x.Source).HasMaxLength(64).IsRequired();
+        b.HasIndex(x => new { x.TenantId, x.UserId });
+    }
+}
+
 internal sealed class PendingApprovalConfiguration : IEntityTypeConfiguration<PendingApproval>
 {
     public void Configure(EntityTypeBuilder<PendingApproval> b)

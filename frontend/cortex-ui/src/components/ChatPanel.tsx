@@ -5,7 +5,8 @@ import {
   createAgentConnection,
   type AgentStreamEvent,
 } from "../lib/signalr";
-import { api } from "../lib/api";
+import { api, uploadFile, type StoredFileInfo } from "../lib/api";
+import { withAttachmentRefs } from "../lib/attachments";
 import { Markdown } from "./Markdown";
 import { PendingApprovals } from "./PendingApprovals";
 
@@ -43,6 +44,12 @@ function formatTokens(n: number): string {
   return new Intl.NumberFormat("en-US").format(n);
 }
 
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function ChatPanel({
   moduleId,
   suggestedPrompts,
@@ -55,12 +62,32 @@ export function ChatPanel({
   const [status, setStatus] = useState<"idle" | "streaming">("idle");
   const [error, setError] = useState<string | null>(null);
   const [sessionTokens, setSessionTokens] = useState(0);
+  const [attachments, setAttachments] = useState<StoredFileInfo[]>([]);
+  const [uploading, setUploading] = useState(false);
   const queryClient = useQueryClient();
 
   const connectionRef = useRef<HubConnection | null>(null);
   const conversationIdRef = useRef<string | undefined>(undefined);
   const subscriptionRef = useRef<{ dispose: () => void } | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function attachFiles(list: FileList | null) {
+    if (!list || list.length === 0) return;
+    setUploading(true);
+    setError(null);
+    try {
+      for (const file of Array.from(list)) {
+        const stored = await uploadFile(file);
+        setAttachments((prev) => [...prev, stored]);
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : `Upload failed: ${String(e)}`);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
 
   // Establish the hub connection once.
   useEffect(() => {
@@ -164,14 +191,17 @@ export function ChatPanel({
   }
 
   function send(explicit?: string) {
-    const text = (explicit ?? input).trim();
+    const typed = (explicit ?? input).trim();
     const connection = connectionRef.current;
-    if (!text || status === "streaming" || !connection) {
+    if ((!typed && attachments.length === 0) || status === "streaming" || uploading || !connection) {
       return;
     }
 
+    const text = withAttachmentRefs(typed, attachments);
+
     setError(null);
     setInput("");
+    setAttachments([]);
 
     const userMessage: ChatMessage = {
       id: newId(),
@@ -356,6 +386,28 @@ export function ChatPanel({
         <PendingApprovals moduleId={moduleId} />
       </div>
 
+      {attachments.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-2" aria-label="Attachments">
+          {attachments.map((a) => (
+            <span
+              key={a.id}
+              className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+            >
+              <span className="max-w-[16rem] truncate">{a.fileName}</span>
+              <span className="text-slate-400">{formatBytes(a.sizeBytes)}</span>
+              <button
+                type="button"
+                aria-label={`Remove ${a.fileName}`}
+                className="ml-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
       <form
         className="flex gap-2"
         onSubmit={(e) => {
@@ -363,6 +415,40 @@ export function ChatPanel({
           send();
         }}
       >
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          aria-label="Attach file"
+          className="hidden"
+          onChange={(e) => void attachFiles(e.target.files)}
+        />
+        <button
+          type="button"
+          aria-label="Attach a file"
+          title="Attach a file"
+          disabled={uploading || status === "streaming"}
+          onClick={() => fileInputRef.current?.click()}
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+        >
+          {uploading ? (
+            <span className="text-xs">…</span>
+          ) : (
+            <svg
+              aria-hidden="true"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+            </svg>
+          )}
+        </button>
         <input
           aria-label="Message"
           className="flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"

@@ -304,6 +304,36 @@ export async function apiSend(
   }
 }
 
+/** A file stored in the platform file store (chat attachments, agent-generated documents). */
+export interface StoredFileInfo {
+  id: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt?: string;
+}
+
+/**
+ * Uploads one file (multipart) to the platform file store and returns its metadata. The returned id
+ * is what chat messages reference and the agent's document tools consume.
+ */
+export async function uploadFile(file: File): Promise<StoredFileInfo> {
+  const form = new FormData();
+  form.append("file", file, file.name);
+
+  const res = await fetch(`${API_BASE}/api/files/`, {
+    method: "POST",
+    headers: { Accept: "application/json", ...devAuthHeaders },
+    body: form,
+  });
+
+  if (!res.ok) {
+    throw await toApiError("POST", "/api/files/", res);
+  }
+
+  return (await res.json()) as StoredFileInfo;
+}
+
 export const api = {
   me: () => apiGet<Me>("/api/platform/me"),
   modules: () => apiGet<Module[]>("/api/platform/modules"),
@@ -317,6 +347,12 @@ export const api = {
   renameConversation: (id: string, title: string) =>
     apiSend(`/api/chat/conversations/${id}/title`, "PUT", { title }),
   deleteConversation: (id: string) => apiSend(`/api/chat/conversations/${id}`, "DELETE"),
+
+  files: {
+    upload: uploadFile,
+    mine: () => apiGet<StoredFileInfo[]>("/api/files/mine"),
+    downloadUrl: (id: string) => `${API_BASE}/api/files/${id}`,
+  },
 
   // Human-in-the-loop: side-effecting tool calls the agent was blocked from auto-running.
   approvals: {
