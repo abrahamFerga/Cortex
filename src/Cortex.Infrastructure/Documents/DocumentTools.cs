@@ -178,10 +178,17 @@ public sealed class DocumentTools(IFileStore files, IOcrEngine? ocr = null)
     /// <summary>
     /// Minimal, dependency-free PDF layout via PdfPig's builder and the standard-14 Helvetica fonts
     /// (built into every PDF reader — nothing to embed, works on any OS): a title line, then
-    /// word-wrapped paragraphs, paginating onto new A4 pages as needed.
+    /// word-wrapped paragraphs, paginating onto new A4 pages as needed. Public so module code
+    /// (report generators, job handlers) can render work product without going through the tool.
     /// </summary>
-    internal static byte[] BuildPdf(string title, string body)
+    public static byte[] BuildPdf(string title, string body)
     {
+        // The standard-14 fonts cover a narrow encoding; agent-authored text is full of typographic
+        // characters (×, …, curly quotes, em-dashes) that PdfPig would throw on. Map the common ones
+        // to ASCII equivalents and drop the rest, so every PDF path is safe by construction.
+        title = SanitizeForStandardFont(title);
+        body = SanitizeForStandardFont(body);
+
         var builder = new PdfDocumentBuilder();
         var bold = builder.AddStandard14Font(UglyToad.PdfPig.Fonts.Standard14Fonts.Standard14Font.HelveticaBold);
         var regular = builder.AddStandard14Font(UglyToad.PdfPig.Fonts.Standard14Fonts.Standard14Font.Helvetica);
@@ -216,6 +223,36 @@ public sealed class DocumentTools(IFileStore files, IOcrEngine? ocr = null)
         }
 
         return builder.Build();
+    }
+
+    /// <summary>Maps typographic characters to ASCII equivalents and drops what standard-14 can't encode.</summary>
+    internal static string SanitizeForStandardFont(string text)
+    {
+        var sb = new StringBuilder(text.Length);
+        foreach (var c in text)
+        {
+            switch (c)
+            {
+                case '×': sb.Append('x'); break;      // ×
+                case '…': sb.Append("..."); break;    // …
+                case '–' or '—': sb.Append('-'); break; // – —
+                case '‘' or '’': sb.Append('\''); break; // ‘ ’
+                case '“' or '”': sb.Append('"'); break;  // “ ”
+                case ' ': sb.Append(' '); break;      // nbsp
+                case '•': sb.Append('-'); break;      // •
+                case '\n' or '\r' or '\t': sb.Append(c); break;
+                default:
+                    if (c >= ' ' && c < '')
+                    {
+                        sb.Append(c);
+                    }
+                    // anything else (emoji, non-Latin scripts) is dropped rather than crashing the render
+
+                    break;
+            }
+        }
+
+        return sb.ToString();
     }
 
     private static IEnumerable<string> Wrap(

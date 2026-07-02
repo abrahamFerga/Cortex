@@ -105,6 +105,13 @@ public sealed class LegalModule : IModule
                 Description = "Get the firm's contract-review playbook rules with severity.",
                 Permission = Permissions.ForTool(Id, "get_playbook"),
             },
+            new ToolDescriptor
+            {
+                Name = "start_bulk_review",
+                Description = "Start a background bulk review of all documents on a matter against a set of questions. Side-effecting: consumes resources and files a report, requires human approval.",
+                Permission = Permissions.ForTool(Id, "start_bulk_review"),
+                RequiresApproval = true,
+            },
         ],
         Tabs =
         [
@@ -142,6 +149,7 @@ public sealed class LegalModule : IModule
         services.AddScoped<LegalTools>();
         services.AddScoped<MatterTools>();
         services.AddSingleton<IModuleToolSource, LegalToolSource>();
+        services.AddSingleton<Cortex.Application.Jobs.IJobHandler, BulkReviewJobHandler>();
 
         // The module owns its data under the 'legal' schema of the platform database.
         services.AddDbContext<LegalDbContext>(options =>

@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Text;
 using Cortex.Application.Files;
+using Cortex.Application.Jobs;
 using Cortex.Core.Multitenancy;
 using Cortex.Modules.Legal.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -13,8 +14,44 @@ namespace Cortex.Modules.Legal;
 /// chat-attachment convention (any channel), and from then on the matter is the unit the agent reads,
 /// drafts, and reports against. Creation and attachment are side-effecting and approval-gated.
 /// </summary>
-public sealed class MatterTools(LegalDbContext db, IFileStore files, ITenantContext tenant)
+public sealed class MatterTools(LegalDbContext db, IFileStore files, ITenantContext tenant, IJobQueue jobs)
 {
+    [Description("Start a bulk review of ALL documents on a matter: every document is checked against every question, and the finished review table is filed on the matter as a PDF. Runs in the background.")]
+    public async Task<string> StartBulkReview(
+        [Description("The matter name whose documents to review.")] string matterName,
+        [Description("The questions to answer per document, separated by semicolons or newlines.")] string questions,
+        CancellationToken cancellationToken = default)
+    {
+        var matter = await FindMatterAsync(matterName, cancellationToken);
+        if (matter is null)
+        {
+            return $"No matter named '{matterName}' exists. Use list_matters to find the right name.";
+        }
+
+        var parsed = questions
+            .Split([';', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(q => q.Trim())
+            .Where(q => q.Length > 0)
+            .ToList();
+        if (parsed.Count == 0)
+        {
+            return "Provide at least one question to answer per document.";
+        }
+
+        var documentCount = await db.MatterDocuments.CountAsync(d => d.MatterId == matter.Id, cancellationToken);
+        if (documentCount == 0)
+        {
+            return $"Matter '{matter.Name}' has no documents to review. Attach documents first.";
+        }
+
+        var jobId = await jobs.EnqueueAsync(
+            LegalModule.Id, BulkReviewJobHandler.JobKind,
+            new BulkReviewArgs(matter.Id, matter.Name, parsed), cancellationToken);
+
+        return $"Started a bulk review of {documentCount} document(s) on matter '{matter.Name}' against {parsed.Count} question(s). " +
+               $"Job id: {jobId} (progress at /api/jobs/{jobId}). The review table will be filed on the matter as a PDF when it completes — check list_matter_documents.";
+    }
+
     [Description("Create a new legal matter (an engagement workspace documents and work product attach to).")]
     public async Task<string> CreateMatter(
         [Description("The matter name, e.g. 'Julia Assange defense' or 'Acme / Initech NDA'.")] string name,

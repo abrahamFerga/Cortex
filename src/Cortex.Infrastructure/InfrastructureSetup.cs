@@ -76,6 +76,11 @@ public static class InfrastructureSetup
         services.AddScoped<DocumentTools>();
         services.AddSingleton<IPlatformToolSource, DocumentToolSource>();
 
+        // The same extraction/rendering for MODULE CODE (job handlers, reports) — Application-level
+        // seams so modules never reference Infrastructure directly.
+        services.AddScoped<Cortex.Application.Documents.IDocumentReader, DocumentReader>();
+        services.AddSingleton<Cortex.Application.Documents.IPdfRenderer, PdfRenderer>();
+
         // Background jobs: modules enqueue long-running work (bulk review, batch imports); the
         // processor executes handlers with the enqueuer's identity restored.
         services.AddScoped<IJobQueue, DbJobQueue>();

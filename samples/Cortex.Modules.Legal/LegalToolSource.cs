@@ -68,6 +68,14 @@ public sealed class LegalToolSource : IModuleToolSource
                 Permission = Permissions.ForTool(ModuleId, "get_playbook"),
                 Function = AIFunctionFactory.Create(clauses.GetPlaybook, name: "get_playbook"),
             },
+            new ModuleTool
+            {
+                ModuleId = ModuleId,
+                Name = "start_bulk_review",
+                Permission = Permissions.ForTool(ModuleId, "start_bulk_review"),
+                Function = AIFunctionFactory.Create(matters.StartBulkReview, name: "start_bulk_review"),
+                RequiresApproval = true,
+            },
         ];
     }
 }
