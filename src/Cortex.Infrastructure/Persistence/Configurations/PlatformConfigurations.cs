@@ -171,6 +171,39 @@ internal sealed class BackgroundJobConfiguration : IEntityTypeConfiguration<Back
     }
 }
 
+internal sealed class RagCollectionConfiguration : IEntityTypeConfiguration<RagCollection>
+{
+    public void Configure(EntityTypeBuilder<RagCollection> b)
+    {
+        b.ToTable("rag_collections");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.ModuleId).HasMaxLength(64).IsRequired();
+        b.Property(x => x.ResourceType).HasMaxLength(64);
+        b.Property(x => x.Name).HasMaxLength(300).IsRequired();
+        b.Property(x => x.EmbeddingModel).HasMaxLength(100).IsRequired();
+        b.HasIndex(x => new { x.TenantId, x.ModuleId, x.ResourceType, x.ResourceId });
+        b.HasIndex(x => new { x.TenantId, x.Name });
+    }
+}
+
+internal sealed class RagChunkConfiguration : IEntityTypeConfiguration<RagChunk>
+{
+    public void Configure(EntityTypeBuilder<RagChunk> b)
+    {
+        b.ToTable("rag_chunks");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.FileName).HasMaxLength(300).IsRequired();
+        b.Property(x => x.Text).IsRequired();
+        b.Property(x => x.EmbeddingModel).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ContentHash).HasMaxLength(64).IsRequired();
+        // The pgvector `embedding` and generated `tsv` columns are added by the migration's raw SQL
+        // and are deliberately NOT mapped — see RagChunk. Composite indexes lead with TenantId so
+        // the hybrid query's predicates stay indexed.
+        b.HasIndex(x => new { x.TenantId, x.CollectionId });
+        b.HasIndex(x => new { x.CollectionId, x.FileId });
+    }
+}
+
 internal sealed class PendingApprovalConfiguration : IEntityTypeConfiguration<PendingApproval>
 {
     public void Configure(EntityTypeBuilder<PendingApproval> b)

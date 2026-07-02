@@ -21,6 +21,10 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 // ── Backing services (run as containers locally) ─────────────────────────────
 var postgres = builder.AddPostgres("cortex-pg")
+    // pgvector-enabled Postgres (same major as Aspire's default, so existing data volumes still
+    // attach) — the platform's opt-in RAG pipeline needs the vector extension at migration time.
+    .WithImage("pgvector/pgvector")
+    .WithImageTag("pg17")
     .WithDataVolume()
     .WithPgAdmin();
 

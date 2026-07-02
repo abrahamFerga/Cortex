@@ -31,7 +31,7 @@ public sealed class LegalModule : IModule
     {
         Id = Id,
         DisplayName = "Legal",
-        Version = "1.1.0",
+        Version = "1.2.0",
         Description = "Matter-centric legal assistant. Organize case documents into matters, search a clause library, and draft clauses for review.",
         Icon = "scale",
         AgentInstructions =
@@ -39,8 +39,11 @@ public sealed class LegalModule : IModule
             "When the user references a case or client engagement, work within that matter: use list_matters / " +
             "create_matter to resolve it, attach_document_to_matter to file documents the user sends (the message " +
             "carries a '[Attached files]' block with file ids), and list_matter_documents to see a matter's files. " +
-            "To answer questions about a matter's documents, call read_document with each file id and CITE the file " +
-            "name and id for every claim you take from a document — never state document contents without a citation. " +
+            "To answer questions about a matter's documents: when the matter is indexed, PREFER search_knowledge " +
+            "(scope it with collection 'matter: <name>') — it returns quoted passages with citations; offer " +
+            "index_matter_documents when it is not indexed yet. For a single specific file, call read_document with " +
+            "its file id. Either way, CITE the file name and id for every claim you take from a document — never " +
+            "state document contents without a citation. " +
             "Use search_clauses / draft_clause for clause work (the firm's own curated library). To deliver a draft as " +
             "work product, chain the tools: draft_clause, then generate_pdf with the drafted text, then " +
             "attach_document_to_matter with the returned file id. When reviewing a contract, first call get_playbook " +
@@ -112,6 +115,27 @@ public sealed class LegalModule : IModule
                 Permission = Permissions.ForTool(Id, "start_bulk_review"),
                 RequiresApproval = true,
             },
+            new ToolDescriptor
+            {
+                Name = "index_matter_documents",
+                Description = "Index a matter's documents into its searchable knowledge collection (for search_knowledge). Side-effecting: consumes resources, requires human approval.",
+                Permission = Permissions.ForTool(Id, "index_matter_documents"),
+                RequiresApproval = true,
+            },
+            new ToolDescriptor
+            {
+                Name = "restrict_matter_access",
+                Description = "Put a matter behind an ethical wall (only the caller keeps access). Side-effecting and requires human approval.",
+                Permission = Permissions.ForTool(Id, "restrict_matter_access"),
+                RequiresApproval = true,
+            },
+            new ToolDescriptor
+            {
+                Name = "open_matter_access",
+                Description = "Lift a matter's ethical wall (caller must be inside it). Side-effecting and requires human approval.",
+                Permission = Permissions.ForTool(Id, "open_matter_access"),
+                RequiresApproval = true,
+            },
         ],
         Tabs =
         [
@@ -150,6 +174,10 @@ public sealed class LegalModule : IModule
         services.AddScoped<MatterTools>();
         services.AddSingleton<IModuleToolSource, LegalToolSource>();
         services.AddSingleton<Cortex.Application.Jobs.IJobHandler, BulkReviewJobHandler>();
+
+        // A matter's RAG collection is gated by the matter itself (wall included) — scope-first
+        // retrieval. Registered unconditionally; it only ever runs when RAG is enabled.
+        services.AddScoped<Cortex.Application.Rag.IRagCollectionGate, MatterRagGate>();
 
         // The module owns its data under the 'legal' schema of the platform database.
         services.AddDbContext<LegalDbContext>(options =>
@@ -322,27 +350,37 @@ public sealed class LegalModule : IModule
             .RequireAuthorization(PermissionRequirement.PolicyName(ManageLibrary))
             .WithName("Legal_DeletePlaybookRule");
 
-        // The tenant's matters — drives the Matters tab (query filter scopes rows to the tenant).
-        group.MapGet("/matters", async (LegalDbContext db, CancellationToken cancellationToken) =>
+        // The tenant's matters — drives the Matters tab (query filter scopes rows to the tenant;
+        // the ethical wall filters per user, so a walled matter never renders for outsiders).
+        group.MapGet("/matters", async (
+                LegalDbContext db, Cortex.Core.Identity.ICurrentUser current, CancellationToken cancellationToken) =>
             {
-                var matters = await db.Matters
-                    .OrderByDescending(m => m.CreatedAt)
-                    .Take(200)
+                var matters = (await db.Matters
+                        .OrderByDescending(m => m.CreatedAt)
+                        .Take(200)
+                        .Select(m => new
+                        {
+                            m.Id, m.Name, m.ClientName, m.Status, m.RestrictedUserIdsJson,
+                            DocumentCount = m.Documents.Count, m.CreatedAt,
+                        })
+                        .ToListAsync(cancellationToken))
+                    .Where(m => Matter.WallAllows(m.RestrictedUserIdsJson, current.UserId))
                     .Select(m => new MatterDto(
-                        m.Id, m.Name, m.ClientName, m.Status.ToString(), m.Documents.Count,
-                        DateOnly.FromDateTime(m.CreatedAt.UtcDateTime)))
-                    .ToListAsync(cancellationToken);
+                        m.Id, m.Name, m.ClientName, m.Status.ToString(), m.DocumentCount,
+                        DateOnly.FromDateTime(m.CreatedAt.UtcDateTime)));
                 return Results.Ok(matters);
             })
             .RequireAuthorization(PermissionRequirement.PolicyName(ViewMatters))
             .WithName("Legal_GetMatters");
 
-        // A matter's attached documents (file ids resolve against /api/files/{id}).
+        // A matter's attached documents (file ids resolve against /api/files/{id}). Outside the
+        // wall, the matter 404s — indistinguishable from missing, like cross-tenant ids.
         group.MapGet("/matters/{matterId:guid}/documents", async (
-                Guid matterId, LegalDbContext db, CancellationToken cancellationToken) =>
+                Guid matterId, LegalDbContext db, Cortex.Core.Identity.ICurrentUser current,
+                CancellationToken cancellationToken) =>
             {
-                var exists = await db.Matters.AnyAsync(m => m.Id == matterId, cancellationToken);
-                if (!exists)
+                var matter = await db.Matters.FirstOrDefaultAsync(m => m.Id == matterId, cancellationToken);
+                if (matter is null || !matter.IsAccessibleTo(current.UserId))
                 {
                     return Results.NotFound();
                 }

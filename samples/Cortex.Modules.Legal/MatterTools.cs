@@ -1,7 +1,10 @@
 using System.ComponentModel;
 using System.Text;
+using System.Text.Json;
 using Cortex.Application.Files;
 using Cortex.Application.Jobs;
+using Cortex.Application.Rag;
+using Cortex.Core.Identity;
 using Cortex.Core.Multitenancy;
 using Cortex.Modules.Legal.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -13,8 +16,18 @@ namespace Cortex.Modules.Legal;
 /// documented "store this PDF as part of the case of Julia Assange" flow: the file id arrives via the
 /// chat-attachment convention (any channel), and from then on the matter is the unit the agent reads,
 /// drafts, and reports against. Creation and attachment are side-effecting and approval-gated.
+///
+/// Every matter lookup honors the ethical wall (<see cref="Matter.RestrictedUserIdsJson"/>): a
+/// walled matter is indistinguishable from a missing one to anyone outside the wall. The optional
+/// <see cref="IRagService"/> (null when Rag:Enabled is false) backs index_matter_documents.
 /// </summary>
-public sealed class MatterTools(LegalDbContext db, IFileStore files, ITenantContext tenant, IJobQueue jobs)
+public sealed class MatterTools(
+    LegalDbContext db,
+    IFileStore files,
+    ITenantContext tenant,
+    ICurrentUser currentUser,
+    IJobQueue jobs,
+    IRagService? rag = null)
 {
     [Description("Start a bulk review of ALL documents on a matter: every document is checked against every question, and the finished review table is filed on the matter as a PDF. Runs in the background.")]
     public async Task<string> StartBulkReview(
@@ -85,11 +98,15 @@ public sealed class MatterTools(LegalDbContext db, IFileStore files, ITenantCont
     [Description("List the tenant's legal matters with their status and document counts.")]
     public async Task<string> ListMatters(CancellationToken cancellationToken = default)
     {
-        var matters = await db.Matters
-            .OrderByDescending(m => m.CreatedAt)
-            .Select(m => new { m.Name, m.ClientName, m.Status, DocumentCount = m.Documents.Count })
+        // Walls are per-user identity, so filter in memory after the tenant-scoped fetch.
+        var matters = (await db.Matters
+                .OrderByDescending(m => m.CreatedAt)
+                .Select(m => new { m.Name, m.ClientName, m.Status, m.RestrictedUserIdsJson, DocumentCount = m.Documents.Count })
+                .Take(200)
+                .ToListAsync(cancellationToken))
+            .Where(m => Matter.WallAllows(m.RestrictedUserIdsJson, currentUser.UserId))
             .Take(50)
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         if (matters.Count == 0)
         {
@@ -103,6 +120,87 @@ public sealed class MatterTools(LegalDbContext db, IFileStore files, ITenantCont
         }
 
         return sb.ToString();
+    }
+
+    [Description("Restrict a matter behind an ethical wall: afterwards ONLY you (and users you later add via the admin surface) can see or use the matter, its documents, and its knowledge collection. Side-effecting and requires approval.")]
+    public async Task<string> RestrictMatterAccess(
+        [Description("The matter name to restrict.")] string matterName,
+        CancellationToken cancellationToken = default)
+    {
+        var matter = await FindMatterAsync(matterName, cancellationToken);
+        if (matter is null)
+        {
+            return $"No matter named '{matterName}' exists. Use list_matters to find the right name.";
+        }
+
+        var userId = currentUser.UserId;
+        if (userId is null)
+        {
+            return "Cannot restrict a matter without an authenticated user.";
+        }
+
+        matter.RestrictedUserIdsJson = JsonSerializer.Serialize(new[] { userId.Value });
+        await db.SaveChangesAsync(cancellationToken);
+
+        return $"Matter '{matter.Name}' is now behind an ethical wall: only you can see or use it. " +
+               "Lift it with open_matter_access.";
+    }
+
+    [Description("Lift a matter's ethical wall so the whole tenant can see it again. Only someone inside the wall can lift it. Side-effecting and requires approval.")]
+    public async Task<string> OpenMatterAccess(
+        [Description("The matter name to open up.")] string matterName,
+        CancellationToken cancellationToken = default)
+    {
+        // FindMatterAsync already applies the wall, so an outsider can't even name the matter.
+        var matter = await FindMatterAsync(matterName, cancellationToken);
+        if (matter is null)
+        {
+            return $"No matter named '{matterName}' exists. Use list_matters to find the right name.";
+        }
+
+        if (matter.RestrictedUserIdsJson is null)
+        {
+            return $"Matter '{matter.Name}' is not restricted.";
+        }
+
+        matter.RestrictedUserIdsJson = null;
+        await db.SaveChangesAsync(cancellationToken);
+        return $"Matter '{matter.Name}' is open to the whole tenant again.";
+    }
+
+    [Description("Index ALL documents on a matter into its searchable knowledge collection, so search_knowledge can answer questions across them with citations. Runs in the background; re-running refreshes the index. Side-effecting and requires approval.")]
+    public async Task<string> IndexMatterDocuments(
+        [Description("The matter name whose documents to index.")] string matterName,
+        CancellationToken cancellationToken = default)
+    {
+        if (rag is null)
+        {
+            return "The knowledge pipeline is not enabled on this deployment (Rag:Enabled is false).";
+        }
+
+        var matter = await FindMatterAsync(matterName, cancellationToken);
+        if (matter is null)
+        {
+            return $"No matter named '{matterName}' exists. Use list_matters to find the right name.";
+        }
+
+        var fileIds = await db.MatterDocuments
+            .Where(d => d.MatterId == matter.Id)
+            .OrderBy(d => d.FileName)
+            .Select(d => d.FileId)
+            .ToListAsync(cancellationToken);
+        if (fileIds.Count == 0)
+        {
+            return $"Matter '{matter.Name}' has no documents to index. Attach documents first.";
+        }
+
+        var collectionId = await rag.GetOrCreateCollectionAsync(
+            LegalModule.Id, MatterRagGate.MatterResourceType, matter.Id, $"matter: {matter.Name}", cancellationToken);
+        var jobId = await jobs.EnqueueAsync(
+            LegalModule.Id, RagIngestJob.Kind, new RagIngestArgs(collectionId, fileIds), cancellationToken);
+
+        return $"Started indexing {fileIds.Count} document(s) on matter '{matter.Name}' into collection 'matter: {matter.Name}'. " +
+               $"Job id: {jobId} (progress at /api/jobs/{jobId}). Once it completes, search_knowledge can answer questions across the matter with citations.";
     }
 
     [Description("Attach a stored file to a legal matter by matter name. Use the file id from the message's attachment reference or from list_documents.")]
@@ -183,7 +281,11 @@ public sealed class MatterTools(LegalDbContext db, IFileStore files, ITenantCont
     private async Task<Matter?> FindMatterAsync(string name, CancellationToken cancellationToken)
     {
         var normalized = name.Trim();
-        return await db.Matters.FirstOrDefaultAsync(
+        var matter = await db.Matters.FirstOrDefaultAsync(
             m => EF.Functions.ILike(m.Name, normalized), cancellationToken);
+
+        // The ethical wall: outside it, a walled matter is indistinguishable from a missing one —
+        // the same no-existence-leak stance the platform takes for cross-tenant ids.
+        return matter is not null && matter.IsAccessibleTo(currentUser.UserId) ? matter : null;
     }
 }

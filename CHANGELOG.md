@@ -43,6 +43,14 @@ all runnable with no AI key via a built-in Mock provider. See [README.md](README
   hold inside jobs. Claim **leases** recover jobs orphaned by a crashed host (requeue up to 3
   attempts, then fail); running jobs **cancel cooperatively** at progress reports, and only their
   enqueuer may cancel them. Pollable at `/api/jobs`.
+- **Permission-aware RAG** (opt-in, `Rag:Enabled`) — documents ingest into **scoped collections**
+  (per matter/project, the Harvey-Vault pattern) via a background job; retrieval is **hybrid**
+  (pgvector + tsvector fused with RRF, tenant/collection predicates in both arms) through the
+  `search_knowledge` platform tool, with per-passage file citations. Access to a resource-bound
+  collection goes through the owning module's `IRagCollectionGate` and **fails closed**. Embeddings
+  ride the swappable `IEmbeddingGenerator` seam — a deterministic **Mock embedder** keeps the whole
+  pipeline keyless in dev/CI. Requires pgvector (dev/CI images updated). See
+  [docs/PLATFORM_CONNECTORS_RAG_PLAN.md](docs/PLATFORM_CONNECTORS_RAG_PLAN.md).
 
 **Frontend (`@cortex/ui`, `@cortex/admin-ui`)**
 - React 18 + Vite libraries: the chat shell (attachments, streaming, retry, approvals), module
@@ -57,7 +65,10 @@ all runnable with no AI key via a built-in Mock provider. See [README.md](README
 - The **Legal** vertical grew into the flagship demo: matter workspaces, attach-document-to-matter,
   cited Q&A over matter documents, a tenant clause library + negotiation playbook, a prescribed
   drafting chain (draft → PDF → file on the matter), playbook contract review, a job-backed **bulk
-  review table** (documents × questions with verbatim, cited excerpts), and WhatsApp client intake.
+  review table** (documents × questions with verbatim, cited excerpts), WhatsApp client intake,
+  **matter knowledge search** (`index_matter_documents` → `search_knowledge` over the matter's RAG
+  collection), and **ethical walls** (`restrict_matter_access` — a walled matter vanishes from every
+  tool, tab, and its knowledge collection for everyone outside the wall, wildcard permissions or not).
 
 **Tooling & ops**
 - **.NET Aspire** AppHost (Postgres + Redis + API + both UIs as Vite resources + a live telemetry

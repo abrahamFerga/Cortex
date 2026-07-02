@@ -58,6 +58,13 @@ public sealed class AuditInterceptor(ICurrentUser currentUser, IAuditLog auditLo
                 StampAuditColumns(entry, auditable, actor, now);
             }
 
+            // Chunks are derived projections of already-audited files, written hundreds at a time
+            // by an audited tool call + job — per-row entries would only bury the real audit trail.
+            if (entry.Entity is Core.Platform.RagChunk)
+            {
+                continue;
+            }
+
             var kind = entry.State switch
             {
                 EntityState.Added => (EntityChangeKind?)EntityChangeKind.Created,

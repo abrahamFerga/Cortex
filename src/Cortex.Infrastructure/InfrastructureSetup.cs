@@ -7,6 +7,7 @@ using Cortex.Application.Conversations;
 using Cortex.Application.Files;
 using Cortex.Application.Jobs;
 using Cortex.Application.Modules;
+using Cortex.Application.Rag;
 using Cortex.Application.Usage;
 using Cortex.Core.Identity;
 using Cortex.Core.Multitenancy;
@@ -23,6 +24,7 @@ using Cortex.Infrastructure.Jobs;
 using Cortex.Infrastructure.Modules;
 using Cortex.Infrastructure.Persistence;
 using Cortex.Infrastructure.Persistence.Interceptors;
+using Cortex.Infrastructure.Rag;
 using Cortex.Infrastructure.Usage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -47,8 +49,30 @@ public static class InfrastructureSetup
         AddAuditing(services);
         AddAgentStack(builder);
         AddFilesAndDocuments(builder);
+        AddRag(builder);
 
         return builder;
+    }
+
+    private static void AddRag(IHostApplicationBuilder builder)
+    {
+        var services = builder.Services;
+
+        services.Configure<RagOptions>(builder.Configuration.GetSection(RagOptions.SectionName));
+        var ragOptions = builder.Configuration.GetSection(RagOptions.SectionName).Get<RagOptions>() ?? new RagOptions();
+        if (!ragOptions.Enabled)
+        {
+            return; // opt-in: a deployment without RAG registers nothing and offers no tool
+        }
+
+        var aiOptions = builder.Configuration.GetSection(AiOptions.SectionName).Get<AiOptions>() ?? new AiOptions();
+        services.AddSingleton<IEmbeddingGenerator<string, Microsoft.Extensions.AI.Embedding<float>>>(
+            _ => EmbeddingGeneratorFactory.Create(ragOptions, aiOptions));
+
+        services.AddScoped<IRagService, RagService>();
+        services.AddScoped<RagTools>();
+        services.AddSingleton<IPlatformToolSource, RagToolSource>();
+        services.AddSingleton<IJobHandler, RagIngestJobHandler>();
     }
 
     private static void AddFilesAndDocuments(IHostApplicationBuilder builder)

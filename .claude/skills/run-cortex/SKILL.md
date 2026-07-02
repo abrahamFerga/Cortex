@@ -108,7 +108,7 @@ silently falls back to `None` ("AI provider is not configured").
 # 1) Build, then start throwaway Postgres
 dotnet build samples/Cortex.Samples.slnx
 docker rm -f cortex-pg-test 2>$null
-docker run -d --name cortex-pg-test -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16
+docker run -d --name cortex-pg-test -e POSTGRES_PASSWORD=postgres -p 5432:5432 pgvector/pgvector:pg16
 
 # 2) Run the sample host — WorkingDirectory MUST be the bin folder
 $bin = "samples/Cortex.Sample.Host/bin/Debug/net10.0"

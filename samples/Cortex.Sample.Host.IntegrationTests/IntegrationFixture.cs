@@ -43,7 +43,7 @@ public sealed class IntegrationFixture : IAsyncLifetime
         Environment.SetEnvironmentVariable("TESTCONTAINERS_RYUK_DISABLED", "true");
 
         _postgres = new PostgreSqlBuilder()
-            .WithImage("postgres:16")
+            .WithImage("pgvector/pgvector:pg16") // the RAG migration needs the vector extension
             .WithDatabase("cortex_platform")
             .WithUsername("postgres")
             .WithPassword("postgres")

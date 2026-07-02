@@ -29,6 +29,9 @@ public static class Permissions
     /// <summary>The pseudo-module id platform document tools are namespaced under (tools.documents.*).</summary>
     public const string DocumentsToolModule = "documents";
 
+    /// <summary>The pseudo-module id the RAG search tool is namespaced under (tools.knowledge.*).</summary>
+    public const string KnowledgeToolModule = "knowledge";
+
     /// <summary>
     /// Permissions reserved for the platform operator (system_admin): they act ACROSS tenants, so a
     /// tenant-scoped admin must never hold them. The RBAC editor refuses to grant these — or any wildcard that

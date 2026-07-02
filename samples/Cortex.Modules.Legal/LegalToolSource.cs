@@ -76,6 +76,30 @@ public sealed class LegalToolSource : IModuleToolSource
                 Function = AIFunctionFactory.Create(matters.StartBulkReview, name: "start_bulk_review"),
                 RequiresApproval = true,
             },
+            new ModuleTool
+            {
+                ModuleId = ModuleId,
+                Name = "index_matter_documents",
+                Permission = Permissions.ForTool(ModuleId, "index_matter_documents"),
+                Function = AIFunctionFactory.Create(matters.IndexMatterDocuments, name: "index_matter_documents"),
+                RequiresApproval = true,
+            },
+            new ModuleTool
+            {
+                ModuleId = ModuleId,
+                Name = "restrict_matter_access",
+                Permission = Permissions.ForTool(ModuleId, "restrict_matter_access"),
+                Function = AIFunctionFactory.Create(matters.RestrictMatterAccess, name: "restrict_matter_access"),
+                RequiresApproval = true,
+            },
+            new ModuleTool
+            {
+                ModuleId = ModuleId,
+                Name = "open_matter_access",
+                Permission = Permissions.ForTool(ModuleId, "open_matter_access"),
+                Function = AIFunctionFactory.Create(matters.OpenMatterAccess, name: "open_matter_access"),
+                RequiresApproval = true,
+            },
         ];
     }
 }

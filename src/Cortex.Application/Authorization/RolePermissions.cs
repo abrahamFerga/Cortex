@@ -26,10 +26,12 @@ public static class RolePermissions
             "chat.*",
             "files.*",
             "tools.documents.*",
+            "tools.knowledge.*",
         ],
 
         // user can chat, see their conversations, attach files, and use the platform's read-only
-        // document tools (extract text, list own files, generate a PDF). Module tools stay opt-in.
+        // document tools (extract text, list own files, generate a PDF) plus knowledge search —
+        // it only ever surfaces collections whose gates admit the caller. Module tools stay opt-in.
         [Roles.User] =
         [
             Permissions.UseChat,
@@ -40,6 +42,7 @@ public static class RolePermissions
             "tools.documents.generate_pdf",
             "tools.documents.list_documents",
             "tools.documents.ocr_document",
+            "tools.knowledge.search_knowledge",
         ],
 
         // guest is read-only.

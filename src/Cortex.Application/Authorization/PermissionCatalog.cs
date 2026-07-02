@@ -33,5 +33,6 @@ public static class PermissionCatalog
         new("tools.documents.generate_pdf", FilesCategory, "Agent tool: generate a PDF document and store it."),
         new("tools.documents.list_documents", FilesCategory, "Agent tool: list the caller's stored files."),
         new("tools.documents.ocr_document", FilesCategory, "Agent tool: OCR a scanned document (requires a configured OCR engine)."),
+        new("tools.knowledge.search_knowledge", FilesCategory, "Agent tool: search indexed knowledge collections for cited passages (requires Rag:Enabled)."),
     ];
 }

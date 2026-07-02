@@ -6,7 +6,7 @@
 # dev; production uses separate databases — see infra/). Redis is the SignalR backplane.
 services:
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg16  # vector extension needed by the opt-in RAG pipeline
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres

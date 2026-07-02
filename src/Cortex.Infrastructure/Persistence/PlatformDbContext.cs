@@ -30,6 +30,8 @@ public sealed class PlatformDbContext(
     public DbSet<PendingApproval> PendingApprovals => Set<PendingApproval>();
     public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
     public DbSet<BackgroundJob> BackgroundJobs => Set<BackgroundJob>();
+    public DbSet<RagCollection> RagCollections => Set<RagCollection>();
+    public DbSet<RagChunk> RagChunks => Set<RagChunk>();
 
     private static readonly MethodInfo ApplyTenantFilterMethod = typeof(PlatformDbContext)
         .GetMethod(nameof(ApplyTenantFilter), BindingFlags.NonPublic | BindingFlags.Instance)!;
