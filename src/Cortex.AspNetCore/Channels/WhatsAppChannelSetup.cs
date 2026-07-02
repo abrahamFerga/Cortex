@@ -26,6 +26,7 @@ public static class WhatsAppChannelSetup
         services.AddSingleton<WhatsAppMessageDeduplicator>();
         services.AddScoped<WhatsAppChannelService>();
         services.AddHttpClient<IWhatsAppSender, WhatsAppCloudApiSender>();
+        services.AddHttpClient<IWhatsAppMediaClient, WhatsAppCloudApiMediaClient>();
 
         return services;
     }

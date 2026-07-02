@@ -62,9 +62,11 @@ Store this as part of the case of Julia Assange
 ```
 
 Plain text on purpose: the convention survives **every** channel (web UI, AG-UI, SignalR, WhatsApp)
-without protocol changes, and the document tools take the file id directly. A channel that receives
-native media (e.g. WhatsApp documents via the Meta media API) can store the bytes through
-`IFileStore` and append the same reference.
+without protocol changes, and the document tools take the file id directly. The WhatsApp channel
+already does this natively: an inbound document/image is downloaded from the Meta media API
+(`IWhatsAppMediaClient`, faked in tests), stored through `IFileStore` with `whatsapp` provenance,
+and the sender's caption + the same reference become the agent turn — so *"send a PDF on WhatsApp,
+say 'store this as part of the case of Julia Assange'"* works end to end.
 
 ## Plugging in OCR
 

@@ -75,6 +75,31 @@ public sealed record WhatsAppWebhookPayload
 
         [JsonPropertyName("text")]
         public TextBody? Text { get; init; }
+
+        [JsonPropertyName("document")]
+        public Media? Document { get; init; }
+
+        [JsonPropertyName("image")]
+        public Media? Image { get; init; }
+    }
+
+    /// <summary>An inbound media reference (document or image) — the bytes are fetched separately.</summary>
+    public sealed record Media
+    {
+        /// <summary>The Cloud API media id to download.</summary>
+        [JsonPropertyName("id")]
+        public string? Id { get; init; }
+
+        [JsonPropertyName("mime_type")]
+        public string? MimeType { get; init; }
+
+        /// <summary>Original file name (documents only).</summary>
+        [JsonPropertyName("filename")]
+        public string? FileName { get; init; }
+
+        /// <summary>The sender's caption, when present — becomes the user message.</summary>
+        [JsonPropertyName("caption")]
+        public string? Caption { get; init; }
     }
 
     public sealed record TextBody

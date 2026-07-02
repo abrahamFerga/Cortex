@@ -73,8 +73,12 @@ In production the two secrets live in Key Vault and reach the container as
   (`X-Hub-Signature-256`, constant-time comparison) before any parsing or processing.
 - Meta redelivers on slow/failed responses; deliveries are deduplicated by message id (in-memory,
   per instance).
-- Media/location messages get a polite "text only" reply; delivery-status callbacks are acknowledged
-  and ignored.
+- **Documents and images are first-class**: inbound media is downloaded via the Cloud API's two-step
+  media endpoint (`IWhatsAppMediaClient`), stored in the tenant file store with `whatsapp`
+  provenance, and the agent turn carries the same plain-text attachment reference the web composer
+  uses — so `read_document` / `ocr_document` work identically over WhatsApp (the caption becomes the
+  user message; see [DOCUMENT_TOOLS.md](DOCUMENT_TOOLS.md)). Audio/location/etc. get a polite notice;
+  delivery-status callbacks are acknowledged and ignored.
 
 ## Testing without Meta
 

@@ -156,6 +156,69 @@ public sealed class WhatsAppChannelTests(IntegrationFixture fixture)
     }
 
     [Fact]
+    public async Task Document_message_is_stored_and_becomes_an_agent_turn_with_the_attachment_reference()
+    {
+        // The lawyer scenario over WhatsApp: a PDF arrives with a caption; the channel downloads the
+        // media (fake client — no Meta), stores it in the tenant file store, and runs the agent turn
+        // with the same attachment reference the web composer uses.
+        var phone = "5215550199";
+        var mediaId = $"media-{Guid.NewGuid():N}";
+        fixture.WhatsAppMedia.Media[mediaId] = ("Exhibit A: the brief."u8.ToArray(), "text/plain");
+
+        var before = fixture.WhatsAppOutbox.Sent.Count;
+        var body = $$$"""
+            {"object":"whatsapp_business_account","entry":[{"id":"waba-1","changes":[{"field":"messages",
+            "value":{"messaging_product":"whatsapp",
+            "contacts":[{"wa_id":"{{{phone}}}","profile":{"name":"Case Lawyer"}}],
+            "messages":[{"id":"wamid.doc-{{{Guid.NewGuid():N}}}","from":"{{{phone}}}","type":"document",
+            "document":{"id":"{{{mediaId}}}","mime_type":"text/plain","filename":"assange-brief.txt",
+            "caption":"Store this as part of the case of Julia Assange"}}]}}]}]}
+            """;
+
+        var response = await PostSignedAsync(body);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        // The agent answered over WhatsApp.
+        var reply = Assert.Single(fixture.WhatsAppOutbox.Sent.Skip(before));
+        Assert.Equal(phone, reply.To);
+        Assert.False(string.IsNullOrWhiteSpace(reply.Text));
+
+        // The media landed in the tenant file store with WhatsApp provenance…
+        using var scope = fixture.WhatsAppFactory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var stored = await db.StoredFiles.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(f => f.FileName == "assange-brief.txt" && f.Source == "whatsapp");
+        Assert.NotNull(stored);
+        Assert.Equal("text/plain", stored!.ContentType);
+
+        // …and the persisted user turn carries the caption + the file reference the document tools consume.
+        var tenant = await db.Tenants.FirstAsync(t => t.Slug == "dev");
+        var conversation = await fixture.GetConversationAsync(
+            WhatsAppChannelService.ConversationIdForPhone(tenant.Id, phone));
+        var userTurn = conversation.Messages.First(m => m.Role == MessageRole.User);
+        Assert.Contains("Julia Assange", userTurn.Content);
+        Assert.Contains($"file id: {stored.Id}", userTurn.Content);
+    }
+
+    [Fact]
+    public async Task Undownloadable_media_gets_an_apologetic_reply_not_an_agent_turn()
+    {
+        var phone = "5215550166";
+        var before = fixture.WhatsAppOutbox.Sent.Count;
+        var body = $$$"""
+            {"object":"whatsapp_business_account","entry":[{"id":"waba-1","changes":[{"field":"messages",
+            "value":{"messaging_product":"whatsapp",
+            "messages":[{"id":"wamid.gone-{{{Guid.NewGuid():N}}}","from":"{{{phone}}}","type":"document",
+            "document":{"id":"missing-media","mime_type":"application/pdf","filename":"gone.pdf"}}]}}]}]}
+            """;
+
+        await PostSignedAsync(body);
+
+        var reply = Assert.Single(fixture.WhatsAppOutbox.Sent.Skip(before));
+        Assert.Contains("couldn't download", reply.Text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Non_text_message_gets_a_text_only_notice()
     {
         var before = fixture.WhatsAppOutbox.Sent.Count;
@@ -163,7 +226,7 @@ public sealed class WhatsAppChannelTests(IntegrationFixture fixture)
             {"object":"whatsapp_business_account","entry":[{"id":"waba-1","changes":[{"field":"messages",
             "value":{"messaging_product":"whatsapp",
             "contacts":[{"wa_id":"5215550188","profile":{"name":"Imagen"}}],
-            "messages":[{"id":"wamid.img-{{{Guid.NewGuid():N}}}","from":"5215550188","type":"image"}]}}]}]}
+            "messages":[{"id":"wamid.audio-{{{Guid.NewGuid():N}}}","from":"5215550188","type":"audio"}]}}]}]}
             """;
 
         await PostSignedAsync(body);

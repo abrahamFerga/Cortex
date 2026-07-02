@@ -5,6 +5,7 @@ using Cortex.Application.Agents;
 using Cortex.Application.Auditing;
 using Cortex.Application.Authorization;
 using Cortex.Application.Channels;
+using Cortex.Application.Files;
 using Cortex.Core.Platform;
 using Cortex.Infrastructure.Context;
 using Cortex.Infrastructure.Persistence;
@@ -26,6 +27,8 @@ public sealed class WhatsAppChannelService(
     IPermissionResolver permissionResolver,
     IAuthorizedAgentRunner runner,
     IWhatsAppSender sender,
+    IWhatsAppMediaClient media,
+    IFileStore files,
     IAuditLog auditLog,
     IOptions<WhatsAppOptions> options,
     ILogger<WhatsAppChannelService> logger)
@@ -60,13 +63,21 @@ public sealed class WhatsAppChannelService(
             return;
         }
 
-        if (!string.Equals(message.Type, "text", StringComparison.OrdinalIgnoreCase) ||
-            string.IsNullOrWhiteSpace(message.Text?.Body))
+        var kind = message.Type?.ToLowerInvariant();
+        var isText = kind == "text" && !string.IsNullOrWhiteSpace(message.Text?.Body);
+        var mediaRef = kind switch
         {
-            // Media/location/etc. still deserve an answer — the sender is a real user waiting on a reply.
+            "document" => message.Document,
+            "image" => message.Image,
+            _ => null,
+        };
+
+        if (!isText && mediaRef?.Id is null)
+        {
+            // Audio/location/etc. still deserve an answer — the sender is a real user waiting on a reply.
             await sender.SendTextAsync(
                 message.From,
-                "Sorry — I can only read text messages for now. Please send your question as text.",
+                "Sorry — I can only read text messages, documents, and images for now.",
                 cancellationToken);
             return;
         }
@@ -139,12 +150,66 @@ public sealed class WhatsAppChannelService(
             return;
         }
 
-        var reply = await RunAgentTurnAsync(message.Text!.Body!, tenant.Id, message.From, cancellationToken);
+        // Media becomes a stored file plus the same plain-text attachment reference the web composer
+        // uses — so the agent's document tools (read_document, ocr_document) work identically here.
+        string turnText;
+        if (mediaRef?.Id is not null)
+        {
+            var stored = await StoreMediaAsync(mediaRef, cancellationToken);
+            if (stored is null)
+            {
+                await sender.SendTextAsync(
+                    message.From,
+                    "Sorry — I couldn't download that attachment. Please try sending it again.",
+                    cancellationToken);
+                return;
+            }
+
+            var caption = string.IsNullOrWhiteSpace(mediaRef.Caption)
+                ? "Please look at the attached file(s)."
+                : mediaRef.Caption;
+            turnText = $"{caption}\n\n[Attached files]\n- {stored.FileName} (file id: {stored.Id})";
+        }
+        else
+        {
+            turnText = message.Text!.Body!;
+        }
+
+        var reply = await RunAgentTurnAsync(turnText, tenant.Id, message.From, cancellationToken);
         if (!string.IsNullOrWhiteSpace(reply))
         {
             await sender.SendTextAsync(message.From, reply, cancellationToken);
         }
     }
+
+    /// <summary>Downloads an inbound media object and stores it in the tenant file store.</summary>
+    private async Task<StoredFile?> StoreMediaAsync(
+        WhatsAppWebhookPayload.Media mediaRef, CancellationToken cancellationToken)
+    {
+        await using var downloaded = await media.DownloadAsync(mediaRef.Id!, cancellationToken);
+        if (downloaded is null)
+        {
+            return null;
+        }
+
+        var contentType = downloaded.ContentType is "application/octet-stream" && mediaRef.MimeType is not null
+            ? mediaRef.MimeType
+            : downloaded.ContentType;
+        var fileName = !string.IsNullOrWhiteSpace(mediaRef.FileName)
+            ? mediaRef.FileName
+            : $"whatsapp-{mediaRef.Id}{ExtensionFor(contentType)}";
+
+        return await files.SaveAsync(fileName, contentType, downloaded.Content, source: "whatsapp", cancellationToken);
+    }
+
+    private static string ExtensionFor(string contentType) => contentType.ToLowerInvariant() switch
+    {
+        "application/pdf" => ".pdf",
+        "image/jpeg" => ".jpg",
+        "image/png" => ".png",
+        "image/webp" => ".webp",
+        _ => "",
+    };
 
     private async Task<string> RunAgentTurnAsync(string text, Guid tenantId, string phone, CancellationToken cancellationToken)
     {

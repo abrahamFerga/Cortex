@@ -34,6 +34,9 @@ public sealed class IntegrationFixture : IAsyncLifetime
     /// <summary>Outbound WhatsApp messages captured from <see cref="WhatsAppFactory"/>.</summary>
     public CapturingWhatsAppSender WhatsAppOutbox { get; } = new();
 
+    /// <summary>Canned media served to <see cref="WhatsAppFactory"/> in place of the Meta media API.</summary>
+    public FakeWhatsAppMediaClient WhatsAppMedia { get; } = new();
+
     public async Task InitializeAsync()
     {
         // Skip the resource-reaper sidecar, which can be flaky on Docker Desktop.
@@ -63,7 +66,11 @@ public sealed class IntegrationFixture : IAsyncLifetime
             builder.UseSetting("Channels:WhatsApp:PhoneNumberId", "10000000001");
             builder.UseSetting("Channels:WhatsApp:ModuleId", "finance");
             builder.UseSetting("Channels:WhatsApp:TenantSlug", "dev");
-            builder.ConfigureTestServices(services => services.AddSingleton<IWhatsAppSender>(WhatsAppOutbox));
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddSingleton<IWhatsAppSender>(WhatsAppOutbox);
+                services.AddSingleton<IWhatsAppMediaClient>(WhatsAppMedia);
+            });
         });
 
         // First client build starts the host, which runs migrations + seeding.
@@ -172,4 +179,15 @@ public sealed class CapturingWhatsAppSender : IWhatsAppSender
         Sent.Enqueue((to, text));
         return Task.CompletedTask;
     }
+}
+
+/// <summary>An <see cref="IWhatsAppMediaClient"/> serving canned bytes keyed by media id.</summary>
+public sealed class FakeWhatsAppMediaClient : IWhatsAppMediaClient
+{
+    public ConcurrentDictionary<string, (byte[] Bytes, string ContentType)> Media { get; } = new();
+
+    public Task<WhatsAppMedia?> DownloadAsync(string mediaId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Media.TryGetValue(mediaId, out var m)
+            ? new WhatsAppMedia(new MemoryStream(m.Bytes), m.ContentType)
+            : null);
 }
