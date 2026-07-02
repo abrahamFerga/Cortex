@@ -25,5 +25,5 @@ public sealed record EffectiveAiSettings(string SystemPrompt, int MaxConversatio
 /// </summary>
 public interface ITenantAiSettings
 {
-    Task<EffectiveAiSettings> ResolveAsync(CancellationToken cancellationToken = default);
+    public Task<EffectiveAiSettings> ResolveAsync(CancellationToken cancellationToken = default);
 }

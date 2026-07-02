@@ -8,5 +8,5 @@ namespace Cortex.Application.Agents;
 /// </summary>
 public interface IAuthorizedAgentRunner
 {
-    IAsyncEnumerable<AgentStreamEvent> RunAsync(AgentRunRequest request, CancellationToken cancellationToken = default);
+    public IAsyncEnumerable<AgentStreamEvent> RunAsync(AgentRunRequest request, CancellationToken cancellationToken = default);
 }

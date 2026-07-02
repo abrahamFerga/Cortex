@@ -7,5 +7,5 @@ namespace Cortex.Core.Multitenancy;
 /// </summary>
 public interface ITenantOwned
 {
-    Guid TenantId { get; }
+    public Guid TenantId { get; }
 }

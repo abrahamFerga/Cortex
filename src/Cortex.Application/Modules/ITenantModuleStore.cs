@@ -10,8 +10,8 @@ namespace Cortex.Application.Modules;
 public interface ITenantModuleStore
 {
     /// <summary>The module ids explicitly disabled for the current tenant.</summary>
-    Task<IReadOnlySet<string>> GetDisabledModuleIdsAsync(CancellationToken cancellationToken = default);
+    public Task<IReadOnlySet<string>> GetDisabledModuleIdsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>True unless <paramref name="moduleId"/> is explicitly disabled for the current tenant.</summary>
-    Task<bool> IsEnabledAsync(string moduleId, CancellationToken cancellationToken = default);
+    public Task<bool> IsEnabledAsync(string moduleId, CancellationToken cancellationToken = default);
 }

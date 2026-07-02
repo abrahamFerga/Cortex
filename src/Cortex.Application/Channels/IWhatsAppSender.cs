@@ -7,5 +7,5 @@ namespace Cortex.Application.Channels;
 public interface IWhatsAppSender
 {
     /// <summary>Sends a text message to a phone number in E.164-without-plus form (as Meta delivers it).</summary>
-    Task SendTextAsync(string to, string text, CancellationToken cancellationToken = default);
+    public Task SendTextAsync(string to, string text, CancellationToken cancellationToken = default);
 }

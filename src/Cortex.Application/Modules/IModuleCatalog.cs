@@ -9,7 +9,7 @@ namespace Cortex.Application.Modules;
 /// </summary>
 public interface IModuleCatalog
 {
-    IReadOnlyList<ModuleManifest> Manifests { get; }
+    public IReadOnlyList<ModuleManifest> Manifests { get; }
 
-    bool TryGetManifest(string moduleId, out ModuleManifest? manifest);
+    public bool TryGetManifest(string moduleId, out ModuleManifest? manifest);
 }

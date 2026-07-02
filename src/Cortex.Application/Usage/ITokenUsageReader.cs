@@ -4,5 +4,5 @@ namespace Cortex.Application.Usage;
 public interface ITokenUsageReader
 {
     /// <summary>Total tokens consumed across all completed turns of a conversation (tenant-scoped).</summary>
-    Task<long> GetConversationTotalAsync(Guid conversationId, CancellationToken cancellationToken = default);
+    public Task<long> GetConversationTotalAsync(Guid conversationId, CancellationToken cancellationToken = default);
 }

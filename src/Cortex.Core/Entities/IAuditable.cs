@@ -6,8 +6,8 @@ namespace Cortex.Core.Entities;
 /// </summary>
 public interface IAuditable
 {
-    DateTimeOffset CreatedAt { get; set; }
-    string? CreatedBy { get; set; }
-    DateTimeOffset? UpdatedAt { get; set; }
-    string? UpdatedBy { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
+    public string? UpdatedBy { get; set; }
 }

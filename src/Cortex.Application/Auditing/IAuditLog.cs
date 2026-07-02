@@ -8,11 +8,11 @@ namespace Cortex.Application.Auditing;
 /// </summary>
 public interface IAuditLog
 {
-    Task RecordToolCallAsync(ToolCallAuditEntry entry, CancellationToken cancellationToken = default);
+    public Task RecordToolCallAsync(ToolCallAuditEntry entry, CancellationToken cancellationToken = default);
 
-    Task RecordAuthEventAsync(AuthAuditEntry entry, CancellationToken cancellationToken = default);
+    public Task RecordAuthEventAsync(AuthAuditEntry entry, CancellationToken cancellationToken = default);
 
-    Task RecordEntityChangesAsync(IReadOnlyCollection<EntityChangeAuditEntry> entries, CancellationToken cancellationToken = default);
+    public Task RecordEntityChangesAsync(IReadOnlyCollection<EntityChangeAuditEntry> entries, CancellationToken cancellationToken = default);
 
-    Task RecordTokenUsageAsync(TokenUsageRecord record, CancellationToken cancellationToken = default);
+    public Task RecordTokenUsageAsync(TokenUsageRecord record, CancellationToken cancellationToken = default);
 }

@@ -8,11 +8,11 @@ namespace Cortex.Core.Multitenancy;
 public interface ITenantContext
 {
     /// <summary>The active tenant, or <c>null</c> for unauthenticated / platform-level calls.</summary>
-    Guid? TenantId { get; }
+    public Guid? TenantId { get; }
 
     /// <summary>True when a tenant has been resolved for the current operation.</summary>
-    bool HasTenant { get; }
+    public bool HasTenant { get; }
 
     /// <summary>The resolved tenant id, throwing if none is present. Use inside tenant-scoped code paths.</summary>
-    Guid RequireTenantId();
+    public Guid RequireTenantId();
 }

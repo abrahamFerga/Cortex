@@ -9,5 +9,5 @@ namespace Cortex.Application.Agents;
 public interface IToolRegistry
 {
     /// <summary>All tools for a module, built from the given scope. Empty if the module exposes none.</summary>
-    IReadOnlyList<ModuleTool> GetModuleTools(string moduleId, IServiceProvider scopedServices);
+    public IReadOnlyList<ModuleTool> GetModuleTools(string moduleId, IServiceProvider scopedServices);
 }

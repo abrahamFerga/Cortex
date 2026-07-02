@@ -13,21 +13,21 @@ namespace Cortex.Modules.Sdk;
 public interface IModule
 {
     /// <summary>Static capability declaration. Read before any other member is called.</summary>
-    ModuleManifest Manifest { get; }
+    public ModuleManifest Manifest { get; }
 
     /// <summary>Register the module's services, tool source, and options into the host container.</summary>
-    void RegisterServices(IServiceCollection services, IConfiguration configuration);
+    public void RegisterServices(IServiceCollection services, IConfiguration configuration);
 
     /// <summary>Map the module's API endpoints. Implementations should require module authorization.</summary>
-    void MapEndpoints(IEndpointRouteBuilder endpoints);
+    public void MapEndpoints(IEndpointRouteBuilder endpoints);
 
     /// <summary>
     /// Optional: migrate the module's own database(s). Called by the host at startup, after the
     /// platform databases are migrated. Modules that own persistence apply their DbContext migrations
     /// here. No-op by default.
     /// </summary>
-    Task MigrateAsync(IServiceProvider services, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task MigrateAsync(IServiceProvider services, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     /// <summary>Optional one-time seed (reference data, defaults). No-op by default.</summary>
-    Task SeedAsync(IServiceProvider services, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task SeedAsync(IServiceProvider services, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }

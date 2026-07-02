@@ -10,8 +10,8 @@ namespace Cortex.Modules.Sdk;
 public interface IModuleToolSource
 {
     /// <summary>The module these tools belong to. Must match the module's manifest id.</summary>
-    string ModuleId { get; }
+    public string ModuleId { get; }
 
     /// <summary>Build the module's tools using services resolved from the current scope.</summary>
-    IReadOnlyList<ModuleTool> GetTools(IServiceProvider scopedServices);
+    public IReadOnlyList<ModuleTool> GetTools(IServiceProvider scopedServices);
 }

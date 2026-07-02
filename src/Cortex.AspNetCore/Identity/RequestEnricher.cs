@@ -1,7 +1,7 @@
 using System.Security.Claims;
-using Cortex.AspNetCore.Auth;
 using Cortex.Application.Auditing;
 using Cortex.Application.Authorization;
+using Cortex.AspNetCore.Auth;
 using Cortex.Core.Platform;
 using Cortex.Infrastructure.Context;
 using Cortex.Infrastructure.Persistence;
@@ -21,7 +21,7 @@ public interface IRequestEnricher
     /// Populates the request context from the principal. Returns <c>false</c> when the resolved user is
     /// <b>deactivated</b> — the caller must then deny the request (the user keeps a valid token but no access).
     /// </summary>
-    Task<bool> EnrichAsync(ClaimsPrincipal principal, string? ipAddress, CancellationToken cancellationToken);
+    public Task<bool> EnrichAsync(ClaimsPrincipal principal, string? ipAddress, CancellationToken cancellationToken);
 }
 
 public sealed class RequestEnricher(

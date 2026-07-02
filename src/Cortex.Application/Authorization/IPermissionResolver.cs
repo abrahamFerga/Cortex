@@ -9,5 +9,5 @@ namespace Cortex.Application.Authorization;
 /// </summary>
 public interface IPermissionResolver
 {
-    Task<IReadOnlySet<string>> ResolveAsync(ClaimsPrincipal principal, CancellationToken cancellationToken = default);
+    public Task<IReadOnlySet<string>> ResolveAsync(ClaimsPrincipal principal, CancellationToken cancellationToken = default);
 }
