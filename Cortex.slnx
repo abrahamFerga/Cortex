@@ -25,11 +25,13 @@
     <Project Path="src/Cortex.AspNetCore/Cortex.AspNetCore.csproj" />
     <Project Path="src/Cortex.ServiceDefaults/Cortex.ServiceDefaults.csproj" />
     <Project Path="src/Cortex.Api/Cortex.Api.csproj" />
+    <Project Path="src/Cortex.Cli/Cortex.Cli.csproj" />
     <Project Path="src/Cortex.AppHost/Cortex.AppHost.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Cortex.Application.Tests/Cortex.Application.Tests.csproj" />
     <Project Path="tests/Cortex.Infrastructure.Tests/Cortex.Infrastructure.Tests.csproj" />
     <Project Path="tests/Cortex.Api.Tests/Cortex.Api.Tests.csproj" />
+    <Project Path="tests/Cortex.Cli.Tests/Cortex.Cli.Tests.csproj" />
   </Folder>
 </Solution>

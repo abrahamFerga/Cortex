@@ -40,6 +40,21 @@ public static class CortexHostSetup
     /// </summary>
     public static WebApplicationBuilder AddCortexPlatform(this WebApplicationBuilder builder)
     {
+        // The `cortex init` wizard's output — one declarative file layered BETWEEN appsettings.json
+        // and appsettings.{Environment}.json (so environment files, user-secrets, and env vars all
+        // still override wizard choices). Appending would jump the whole pipeline. Never holds secrets.
+        var sources = ((IConfigurationBuilder)builder.Configuration).Sources;
+        var appsettings = sources.LastOrDefault(s =>
+            s is Microsoft.Extensions.Configuration.Json.JsonConfigurationSource { Path: "appsettings.json" });
+        var wizardSource = new Microsoft.Extensions.Configuration.Json.JsonConfigurationSource
+        {
+            Path = "cortex.settings.json",
+            Optional = true,
+            ReloadOnChange = true,
+        };
+        wizardSource.ResolveFileProvider();
+        sources.Insert(appsettings is null ? sources.Count : sources.IndexOf(appsettings) + 1, wizardSource);
+
         builder.AddServiceDefaults();
 
         builder.Services.AddProblemDetails();
