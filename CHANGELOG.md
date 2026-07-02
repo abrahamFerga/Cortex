@@ -63,6 +63,15 @@ all runnable with no AI key via a built-in Mock provider. See [README.md](README
   settings are write-only and protected at rest. Ships with **Azure Blob Storage** and a keyless
   **local-folder** connector; fetched files land in the tenant file store, so attachments, document
   tools, matters, and RAG indexing work on them unchanged.
+- **Connector sync (Lane B)** — bind ONE external folder to ONE module resource (Harvey-style
+  scoped bindings, never global indexing): a background sync job imports new/changed files
+  (incremental via per-item stamps) into the file store and hands them to the owning module. In
+  Legal, `connect_matter_folder` / `sync_matter_folder` attach synced files to the matter AND index
+  them into its knowledge collection — "keep this matter in sync with our folder" ends in cited,
+  searchable knowledge.
+- **`cortex` CLI** — `cortex init` (interactive wizard or `--non-interactive` flags) writes one
+  declarative `cortex.settings.json` the host layers into configuration; re-runs are
+  non-destructive and secrets are never written (user-secrets commands are printed instead).
 - **Permission-aware RAG** (opt-in, `Rag:Enabled`) — documents ingest into **scoped collections**
   (per matter/project, the Harvey-Vault pattern) via a background job; retrieval is **hybrid**
   (pgvector + tsvector fused with RRF, tenant/collection predicates in both arms) through the

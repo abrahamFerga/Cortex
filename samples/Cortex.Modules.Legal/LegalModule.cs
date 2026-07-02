@@ -31,7 +31,7 @@ public sealed class LegalModule : IModule
     {
         Id = Id,
         DisplayName = "Legal",
-        Version = "1.2.0",
+        Version = "1.3.0",
         Description = "Matter-centric legal assistant. Organize case documents into matters, search a clause library, and draft clauses for review.",
         Icon = "scale",
         AgentInstructions =
@@ -136,6 +136,20 @@ public sealed class LegalModule : IModule
                 Permission = Permissions.ForTool(Id, "open_matter_access"),
                 RequiresApproval = true,
             },
+            new ToolDescriptor
+            {
+                Name = "connect_matter_folder",
+                Description = "Bind a matter to a folder in a connected data source and start syncing (files attach + index automatically). Side-effecting and requires human approval.",
+                Permission = Permissions.ForTool(Id, "connect_matter_folder"),
+                RequiresApproval = true,
+            },
+            new ToolDescriptor
+            {
+                Name = "sync_matter_folder",
+                Description = "Re-sync a matter's bound folder (new/changed files attach + index; unchanged skipped). Side-effecting and requires human approval.",
+                Permission = Permissions.ForTool(Id, "sync_matter_folder"),
+                RequiresApproval = true,
+            },
         ],
         Tabs =
         [
@@ -178,6 +192,10 @@ public sealed class LegalModule : IModule
         // A matter's RAG collection is gated by the matter itself (wall included) — scope-first
         // retrieval. Registered unconditionally; it only ever runs when RAG is enabled.
         services.AddScoped<Cortex.Application.Rag.IRagCollectionGate, MatterRagGate>();
+
+        // Connector sync lands here: synced files attach to the bound matter and index into its
+        // knowledge collection (the connect_matter_folder / sync_matter_folder chain).
+        services.AddScoped<Cortex.Application.Connectors.IConnectorSyncHandler, MatterSyncHandler>();
 
         // The module owns its data under the 'legal' schema of the platform database.
         services.AddDbContext<LegalDbContext>(options =>

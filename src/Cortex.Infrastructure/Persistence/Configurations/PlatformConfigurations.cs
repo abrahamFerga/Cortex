@@ -182,6 +182,21 @@ internal sealed class TenantConnectorConfiguration : IEntityTypeConfiguration<Te
     }
 }
 
+internal sealed class ConnectorBindingConfiguration : IEntityTypeConfiguration<ConnectorBinding>
+{
+    public void Configure(EntityTypeBuilder<ConnectorBinding> b)
+    {
+        b.ToTable("connector_bindings");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.ConnectorId).HasMaxLength(64).IsRequired();
+        b.Property(x => x.ModuleId).HasMaxLength(64).IsRequired();
+        b.Property(x => x.ResourceType).HasMaxLength(64).IsRequired();
+        b.Property(x => x.ExternalRef).HasMaxLength(1000).IsRequired();
+        // One binding per resource (the Harvey pattern) — rebinding replaces, never accumulates.
+        b.HasIndex(x => new { x.TenantId, x.ModuleId, x.ResourceType, x.ResourceId }).IsUnique();
+    }
+}
+
 internal sealed class RagCollectionConfiguration : IEntityTypeConfiguration<RagCollection>
 {
     public void Configure(EntityTypeBuilder<RagCollection> b)

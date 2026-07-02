@@ -100,6 +100,22 @@ public sealed class LegalToolSource : IModuleToolSource
                 Function = AIFunctionFactory.Create(matters.OpenMatterAccess, name: "open_matter_access"),
                 RequiresApproval = true,
             },
+            new ModuleTool
+            {
+                ModuleId = ModuleId,
+                Name = "connect_matter_folder",
+                Permission = Permissions.ForTool(ModuleId, "connect_matter_folder"),
+                Function = AIFunctionFactory.Create(matters.ConnectMatterFolder, name: "connect_matter_folder"),
+                RequiresApproval = true,
+            },
+            new ModuleTool
+            {
+                ModuleId = ModuleId,
+                Name = "sync_matter_folder",
+                Permission = Permissions.ForTool(ModuleId, "sync_matter_folder"),
+                Function = AIFunctionFactory.Create(matters.SyncMatterFolder, name: "sync_matter_folder"),
+                RequiresApproval = true,
+            },
         ];
     }
 }

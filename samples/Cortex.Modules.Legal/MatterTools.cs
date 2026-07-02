@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
+using Cortex.Application.Connectors;
 using Cortex.Application.Files;
 using Cortex.Application.Jobs;
 using Cortex.Application.Rag;
@@ -27,8 +28,54 @@ public sealed class MatterTools(
     ITenantContext tenant,
     ICurrentUser currentUser,
     IJobQueue jobs,
+    IConnectorBindingService bindings,
     IRagService? rag = null)
 {
+    [Description("Bind a matter to a folder in a connected data source (e.g. the local-folder or azure-blob connector) and start syncing it: new and changed files are attached to the matter and indexed for search_knowledge. One folder per matter; rebinding replaces it. Side-effecting and requires approval.")]
+    public async Task<string> ConnectMatterFolder(
+        [Description("The matter name to bind.")] string matterName,
+        [Description("The folder/prefix within the connector (e.g. 'contracts/acme').")] string folderRef,
+        [Description("The connector id (default 'local-folder'; e.g. 'azure-blob').")] string connector = "local-folder",
+        CancellationToken cancellationToken = default)
+    {
+        var matter = await FindMatterAsync(matterName, cancellationToken);
+        if (matter is null)
+        {
+            return $"No matter named '{matterName}' exists. Use list_matters to find the right name.";
+        }
+
+        var bindingId = await bindings.BindAsync(
+            connector, LegalModule.Id, MatterRagGate.MatterResourceType, matter.Id, folderRef.Trim(), cancellationToken);
+        var jobId = await jobs.EnqueueAsync(
+            LegalModule.Id, ConnectorSyncJob.Kind, new ConnectorSyncArgs(bindingId), cancellationToken);
+
+        return $"Bound matter '{matter.Name}' to '{folderRef}' on the '{connector}' connector and started the first sync. " +
+               $"Job id: {jobId} (progress at /api/jobs/{jobId}). Synced files are attached to the matter and indexed; re-run with sync_matter_folder.";
+    }
+
+    [Description("Re-sync a matter's bound folder: new and changed files are attached and indexed; unchanged files are skipped. Side-effecting and requires approval.")]
+    public async Task<string> SyncMatterFolder(
+        [Description("The matter name whose bound folder to sync.")] string matterName,
+        CancellationToken cancellationToken = default)
+    {
+        var matter = await FindMatterAsync(matterName, cancellationToken);
+        if (matter is null)
+        {
+            return $"No matter named '{matterName}' exists. Use list_matters to find the right name.";
+        }
+
+        var bindingId = await bindings.FindAsync(
+            LegalModule.Id, MatterRagGate.MatterResourceType, matter.Id, cancellationToken);
+        if (bindingId is null)
+        {
+            return $"Matter '{matter.Name}' has no bound folder. Bind one first with connect_matter_folder.";
+        }
+
+        var jobId = await jobs.EnqueueAsync(
+            LegalModule.Id, ConnectorSyncJob.Kind, new ConnectorSyncArgs(bindingId.Value), cancellationToken);
+        return $"Started syncing matter '{matter.Name}' from its bound folder. Job id: {jobId} (progress at /api/jobs/{jobId}).";
+    }
+
     [Description("Start a bulk review of ALL documents on a matter: every document is checked against every question, and the finished review table is filed on the matter as a PDF. Runs in the background.")]
     public async Task<string> StartBulkReview(
         [Description("The matter name whose documents to review.")] string matterName,

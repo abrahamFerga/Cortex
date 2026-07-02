@@ -66,6 +66,11 @@ public static class InfrastructureSetup
         services.AddScoped<IConnectorToolCatalog, ConnectorToolCatalog>();
         services.AddScoped<ConnectorSettingsService>();
         services.AddScoped<Cortex.Connectors.Sdk.IConnectorSettings>(sp => sp.GetRequiredService<ConnectorSettingsService>());
+
+        // Sync lane: resource-scoped bindings walked by a background job (incremental via
+        // per-item stamps); the owning module attaches/indexes what gets imported.
+        services.AddScoped<IConnectorBindingService, ConnectorBindingService>();
+        services.AddSingleton<IJobHandler, ConnectorSyncJobHandler>();
     }
 
     private static void AddRag(IHostApplicationBuilder builder)

@@ -24,8 +24,9 @@ public sealed class LocalFolderConnector : IConnector
     {
         Id = ConnectorId,
         DisplayName = "Local folder",
-        Description = "Browse and fetch files from a directory on the host (dev/test, watched folders). Only the configured root is reachable.",
+        Description = "Browse, fetch, and sync files from a directory on the host (dev/test, watched folders). Only the configured root is reachable.",
         AuthMode = ConnectorAuthMode.Service,
+        SupportsSync = true,
         Icon = "folder-open",
         Settings =
         [
@@ -59,5 +60,6 @@ public sealed class LocalFolderConnector : IConnector
     {
         services.AddScoped<LocalFolderTools>();
         services.AddSingleton<IConnectorToolSource, LocalFolderToolSource>();
+        services.AddScoped<IConnectorSyncSource, LocalFolderSyncSource>();
     }
 }

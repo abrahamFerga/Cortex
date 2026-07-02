@@ -33,6 +33,7 @@ public sealed class PlatformDbContext(
     public DbSet<RagCollection> RagCollections => Set<RagCollection>();
     public DbSet<RagChunk> RagChunks => Set<RagChunk>();
     public DbSet<TenantConnector> TenantConnectors => Set<TenantConnector>();
+    public DbSet<ConnectorBinding> ConnectorBindings => Set<ConnectorBinding>();
 
     private static readonly MethodInfo ApplyTenantFilterMethod = typeof(PlatformDbContext)
         .GetMethod(nameof(ApplyTenantFilter), BindingFlags.NonPublic | BindingFlags.Instance)!;
