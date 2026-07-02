@@ -49,35 +49,29 @@ var api = builder.AddProject<Projects.Cortex_Sample_Host>("cortex-sample")
     .WithEnvironment("Ai__ApiKey", aiApiKey)
     .WithExternalHttpEndpoints();
 
-// ── Front-ends (Vite dev servers; pnpm workspace deps installed once, so no per-app install) ──
-// A missing pnpm or a skipped `pnpm install` otherwise surfaces as an opaque resource failure
-// deep in the dashboard, so check the two prerequisites up front and say exactly how to fix them.
-if (builder.ExecutionContext.IsRunMode)
+// ── Front-ends (Vite dev servers, launched via pnpm) ─────────────────────────
+// A missing pnpm otherwise surfaces as an opaque resource failure deep in the dashboard, so check
+// it up front and say exactly how to fix it.
+if (builder.ExecutionContext.IsRunMode && !ToolExistsOnPath("pnpm"))
 {
-    if (!ToolExistsOnPath("pnpm"))
-    {
-        throw new DistributedApplicationException(
-            "pnpm was not found on PATH, so the cortex-ui / cortex-admin-ui resources cannot start. " +
-            "Run `corepack enable` (needs admin rights on Windows — or use `npm install -g pnpm`), " +
-            "then `pnpm --dir frontend install`, and start the AppHost again.");
-    }
-
-    if (!Directory.Exists(Path.Combine(builder.AppHostDirectory, "../../frontend/node_modules")))
-    {
-        throw new DistributedApplicationException(
-            "Front-end dependencies are not installed (frontend/node_modules is missing). " +
-            "Run `pnpm --dir frontend install` once, then start the AppHost again.");
-    }
+    throw new DistributedApplicationException(
+        "pnpm was not found on PATH, so the cortex-ui / cortex-admin-ui resources cannot start. " +
+        "Run `corepack enable` (needs admin rights on Windows — or use `npm install -g pnpm`), " +
+        "then start the AppHost again.");
 }
 
+// install: true (the default) runs `pnpm install` as an <name>-installer resource before each UI
+// starts — a fast no-op when deps are current, and a fresh clone self-installs. In the dashboard
+// the installer resources run to completion ("Finished"); they are helpers, not long-running
+// services (same for the Aspire-internal "cortex-sample-rebuilder").
 var workspace = builder.AddViteApp("cortex-ui", "../../frontend/cortex-ui")
-    .WithPnpm(install: false)
+    .WithPnpm()
     .WaitFor(api)
     .WithEnvironment("VITE_API_BASE", api.GetEndpoint("http"))
     .WithExternalHttpEndpoints();
 
 var admin = builder.AddViteApp("cortex-admin-ui", "../../frontend/admin-ui")
-    .WithPnpm(install: false)
+    .WithPnpm()
     .WaitFor(api)
     .WithEnvironment("VITE_API_BASE", api.GetEndpoint("http"))
     .WithEnvironment("VITE_WORKSPACE_URL", workspace.GetEndpoint("http"))

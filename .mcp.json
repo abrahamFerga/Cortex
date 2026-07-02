@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "aspire": {
+      "command": "aspire",
+      "args": ["mcp", "start", "--non-interactive"]
+    }
+  }
+}

@@ -92,9 +92,18 @@ domain UI and the admin console) as Vite dev servers — the whole stack in one 
 telemetry dashboard. Install the front-end deps once, then run the host:
 
 ```bash
-corepack enable && pnpm --dir frontend install     # once — deps for the cortex-ui / cortex-admin-ui resources
-dotnet run --project samples/Cortex.Sample.AppHost
+dotnet run --project samples/Cortex.Sample.AppHost   # or `aspire run` from that directory
 ```
+
+pnpm must be on PATH (`corepack enable`, or `npm i -g pnpm` on Windows without admin); the front-end
+dependencies install themselves — each UI has an `…-installer` helper resource that runs
+`pnpm install` before the dev server starts (a ~1s no-op when deps are already current).
+
+> **Reading the dashboard:** `cortex-ui-installer`, `cortex-admin-ui-installer`, and
+> `cortex-sample-rebuilder` are **on-demand helpers, not services** — the installers run to
+> completion ("Finished") on every start, and the rebuilder stays "NotStarted" until you use the
+> dashboard's Rebuild command. Every real service (API, both UIs, Postgres, Redis, pgAdmin) should
+> show **Running / Healthy**.
 
 The dashboard lists every resource with its (dynamic) URL — `cortex-sample` (API), `cortex-ui` (domain
 UI), `cortex-admin-ui` (admin console) — and shows logs, traces (including **agent runs and LLM calls**),

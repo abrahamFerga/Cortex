@@ -68,9 +68,28 @@ dotnet user-secrets --project samples/Cortex.Sample.AppHost set "Parameters:ai-a
 ```
 
 **Reading logs/telemetry via the Aspire MCP.** If an Aspire MCP server is
-connected (tools surface via ToolSearch — search `aspire`), use it to list
-resources, tail logs, and read traces without scraping the console. The MCP/CLI
-is the agent-readable view of the same OpenTelemetry the dashboard renders.
+connected (tools surface via ToolSearch — search `aspire`; `.mcp.json` registers
+`aspire mcp start`), use it to list resources, tail logs, and read traces without
+scraping the console. The MCP/CLI is the agent-readable view of the same
+OpenTelemetry the dashboard renders. Gotchas that make it report "No Aspire
+AppHost is currently running":
+
+- The AppHost must be launched with **`aspire run`** (the CLI backchannel) — an
+  AppHost started via `dotnet run` is invisible to the MCP.
+- The **CLI and AppHost SDK versions must match** (e.g. CLI 13.1 cannot see a
+  13.4 AppHost). Update with the official installer: `iex "& { $(irm https://aspire.dev/install.ps1) }"`.
+- Stale zero-byte `~/.aspire/cli/backchannels/aux.sock.*` files from crashed
+  sessions break discovery — delete them.
+- Discovery is push-based and takes a few seconds after the MCP server starts.
+
+If no MCP is connected to the session, you can still drive one over stdio:
+spawn `aspire mcp start --non-interactive`, speak JSON-RPC (initialize →
+tools/call), and call `list_resources` / `list_console_logs` /
+`list_structured_logs`. **Dashboard-reading tip:** resources named
+`*-installer` (pnpm install helpers, run to "Finished" each start) and
+`*-rebuilder` (on-demand rebuild, stays "NotStarted") are helpers — not
+services failing to start.
+
 Caveat: in a headless/cron run the dashboard and MCP may be unavailable — use
 Mode B there.
 
