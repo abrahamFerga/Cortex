@@ -153,6 +153,24 @@ internal sealed class StoredFileConfiguration : IEntityTypeConfiguration<StoredF
     }
 }
 
+internal sealed class BackgroundJobConfiguration : IEntityTypeConfiguration<BackgroundJob>
+{
+    public void Configure(EntityTypeBuilder<BackgroundJob> b)
+    {
+        b.ToTable("background_jobs");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.ModuleId).HasMaxLength(64).IsRequired();
+        b.Property(x => x.Kind).HasMaxLength(128).IsRequired();
+        b.Property(x => x.ArgumentsJson).IsRequired();
+        b.Property(x => x.PermissionsSnapshotJson).IsRequired();
+        b.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
+        b.Property(x => x.ProgressNote).HasMaxLength(500);
+        b.Property(x => x.Error).HasMaxLength(2000);
+        b.HasIndex(x => x.Status); // the processor's claim scan
+        b.HasIndex(x => new { x.TenantId, x.UserId });
+    }
+}
+
 internal sealed class PendingApprovalConfiguration : IEntityTypeConfiguration<PendingApproval>
 {
     public void Configure(EntityTypeBuilder<PendingApproval> b)

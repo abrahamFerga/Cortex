@@ -103,6 +103,7 @@ public static class CortexHostSetup
         app.MapPlatformEndpoints();
         app.MapChatEndpoints();
         app.MapFileEndpoints();
+        app.MapJobEndpoints();
         app.MapApprovalEndpoints();
         app.MapAdminEndpoints();
         app.MapAgui();

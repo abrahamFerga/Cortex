@@ -18,7 +18,7 @@ namespace Cortex.Api.Tests;
 /// EF contexts swapped to a shared in-memory store — no PostgreSQL, no Docker. Each factory instance gets a
 /// uniquely-named store so test classes are isolated.
 /// </summary>
-public sealed class CortexApiFactory : WebApplicationFactory<Program>
+public class CortexApiFactory : WebApplicationFactory<Program>
 {
     private readonly string _databaseName = $"cortex-tests-{Guid.NewGuid():N}";
 

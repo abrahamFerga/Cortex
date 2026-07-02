@@ -29,6 +29,7 @@ public sealed class PlatformDbContext(
     public DbSet<ConversationMessage> ConversationMessages => Set<ConversationMessage>();
     public DbSet<PendingApproval> PendingApprovals => Set<PendingApproval>();
     public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
+    public DbSet<BackgroundJob> BackgroundJobs => Set<BackgroundJob>();
 
     private static readonly MethodInfo ApplyTenantFilterMethod = typeof(PlatformDbContext)
         .GetMethod(nameof(ApplyTenantFilter), BindingFlags.NonPublic | BindingFlags.Instance)!;
