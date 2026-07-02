@@ -137,6 +137,7 @@ call, audit on every invocation, and the human-in-the-loop approval gate for sid
 | **The UI can't reach the API** | The API isn't running, or isn't at `http://localhost:8080`. Start it (`dotnet run --project samples/Cortex.Sample.Host`), or point the UI elsewhere with `VITE_API_BASE` (see `.env.example`). |
 | **Chat errors about the AI provider** | You set `Ai:Provider` to a real provider without a working key/endpoint. The default **Mock** provider needs no setup — unset it, or supply the key (see [Try a real model](#try-a-real-model)). |
 | **Aspire AppHost exits: `pnpm was not found on PATH`** | The front-end resources are launched via pnpm. Run `corepack enable` (elevated on Windows) or `npm install -g pnpm`, then `pnpm --dir frontend install`, and start the AppHost again. |
+| **Aspire stack hangs: containers run but the API never starts** | Almost always a **stale Postgres data volume**: the volume was initialized with a different generated password than the one now in the AppHost's user-secrets, so every health check fails (`docker logs <cortex-pg-…>` shows `password authentication failed`) and `WaitFor` blocks forever. Dev data is throwaway — remove the volume and rerun: `docker volume ls \| findstr cortex`, then `docker volume rm <name>`. |
 
 ## What's next
 

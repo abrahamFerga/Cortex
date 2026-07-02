@@ -205,6 +205,7 @@ pnpm -C frontend install; pnpm -C frontend -r lint; pnpm -C frontend -r test; pn
 | Chat returns `RUN_ERROR "AI provider is not configured"` | ContentRoot didn't load dev appsettings — set Start-Process **WorkingDirectory** to the bin folder, or pass `--Ai:Provider=Mock` on the command line |
 | `RUN_ERROR "Unknown module"` | Module id must be `finance` or `nutrition`; the bare `src/Cortex.AppHost` has no modules — use the sample AppHost |
 | Startup fails on DB connect | Docker not running, or Postgres not ready yet — wait for `pg_isready` before launching the API |
+| Aspire: containers up but the API never starts (stack "hangs" after the dashboard banner) | Stale Postgres **data volume** initialized with a different generated password than the AppHost user-secrets now hold — `docker logs <cortex-pg-…>` shows `password authentication failed`, health checks never pass, `WaitFor` blocks the API + UIs forever. Fix: `docker volume ls | grep cortex` → `docker volume rm <name>` (dev data is throwaway), rerun |
 | `DLL is locked by .NET Host` on rebuild | A previous API process is still running — `Stop-Process` it first |
 | Empty admin/usage data | Token usage only appears after at least one chat turn |
 | Port already in use | Change `--urls` (Mode B) or stop the stale process |
