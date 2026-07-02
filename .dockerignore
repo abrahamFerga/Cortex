@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/.vs/
+**/node_modules/
+**/dist/
+frontend/
+infra/
+.git/
+.github/
+**/*.user
+artifacts/
+TestResults/

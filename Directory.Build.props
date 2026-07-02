@@ -1,0 +1,28 @@
+<Project>
+
+  <!-- Shared MSBuild properties for every project in the Cortex solution. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <!-- NuGet package metadata — applies to packable projects (IsPackable=true in their .csproj). -->
+  <PropertyGroup>
+    <Version>0.1.0-alpha</Version>
+    <Authors>Cortex Contributors</Authors>
+    <Company>Cortex</Company>
+    <Product>Cortex AI Platform</Product>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>cortex;ai;agents;multitenant;dotnet</PackageTags>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

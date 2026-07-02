@@ -1,0 +1,52 @@
+# =============================================================================
+# dev.tfvars.example
+# -----------------------------------------------------------------------------
+# Copy to dev.tfvars and fill in tenant/GitHub specifics. Cheap, scale-to-zero.
+#   terraform apply -var-file=environments/dev.tfvars
+# =============================================================================
+
+environment = "dev"
+location    = "westeurope"
+
+# --- Database (cheapest burstable SKU) --------------------------------------
+postgres_sku_name   = "B_Standard_B1ms"
+postgres_storage_mb = 32768
+# postgres_aad_admin_object_id      = "00000000-0000-0000-0000-000000000000"
+# postgres_aad_admin_principal_name = "dev-dba@contoso.com"
+# postgres_allowed_cidr             = "203.0.113.10/32"
+
+# --- Redis (Basic C0) --------------------------------------------------------
+redis_sku_name = "Basic"
+redis_family   = "C"
+redis_capacity = 0
+
+# --- Container App (scale to zero) ------------------------------------------
+api_cpu          = 0.5
+api_memory       = "1Gi"
+api_min_replicas = 0
+api_max_replicas = 1
+# api_image is overridden by the deploy pipeline with the ACR image:sha.
+
+# --- CIAM / auth (provision tenant manually, paste IDs here) -----------------
+ciam_tenant_id      = ""
+ciam_authority_host = ""
+spa_redirect_uris   = ["http://localhost:5173"]
+
+# --- GitHub OIDC -------------------------------------------------------------
+github_owner        = "your-org"
+github_repo         = "Cortex"
+github_environments = ["development"]
+
+# --- App runtime config (plain env; secrets live in Key Vault) ----------------
+# Which vault secret feeds Ai:ApiKey (matches Ai__Provider below):
+# ai_api_key_secret_name = "openai-api-key"
+# api_extra_env = {
+#   "Ai__Provider" = "OpenAI"
+#   "Ai__Model"    = "gpt-4o-mini"
+#   # WhatsApp channel (docs/WHATSAPP_CHANNEL.md). Credentials come from the
+#   # whatsapp-* Key Vault secrets; these are the non-secret settings:
+#   "Channels__WhatsApp__Enabled"       = "true"
+#   "Channels__WhatsApp__PhoneNumberId" = "<phone-number-id>"
+#   "Channels__WhatsApp__ModuleId"      = "finance"
+#   "Channels__WhatsApp__TenantSlug"    = "dev"
+# }

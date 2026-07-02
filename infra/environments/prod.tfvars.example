@@ -1,0 +1,37 @@
+# =============================================================================
+# prod.tfvars.example
+# -----------------------------------------------------------------------------
+# Copy to prod.tfvars. Production sizing; always-on with headroom to scale.
+#   terraform apply -var-file=environments/prod.tfvars
+# =============================================================================
+
+environment = "prod"
+location    = "westeurope"
+
+# --- Database (general purpose, larger) -------------------------------------
+postgres_sku_name   = "GP_Standard_D4s_v3"
+postgres_storage_mb = 131072
+# postgres_aad_admin_object_id      = "00000000-0000-0000-0000-000000000000"
+# postgres_aad_admin_principal_name = "prod-dba@contoso.com"
+
+# --- Redis (Premium P1) ------------------------------------------------------
+redis_sku_name = "Premium"
+redis_family   = "P"
+redis_capacity = 1
+
+# --- Container App (always on, scales to 5) ---------------------------------
+api_cpu          = 1.0
+api_memory       = "2Gi"
+api_min_replicas = 1
+api_max_replicas = 5
+# api_image overridden by the deploy pipeline.
+
+# --- CIAM / auth -------------------------------------------------------------
+ciam_tenant_id      = ""
+ciam_authority_host = ""
+spa_redirect_uris   = ["https://app.cortex.example.com"]
+
+# --- GitHub OIDC (production requires manual approval gate) -------------------
+github_owner        = "your-org"
+github_repo         = "Cortex"
+github_environments = ["production"]

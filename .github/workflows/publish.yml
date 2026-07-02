@@ -1,0 +1,77 @@
+# =============================================================================
+# publish.yml — Publish the Cortex platform packages to GitHub Packages.
+# -----------------------------------------------------------------------------
+# Runs when a GitHub Release is published (the tag drives the version), or on a
+# manual dispatch with an explicit version. Packs the six packable libraries and
+# pushes them to the repo's GitHub Packages NuGet feed, so downstream products can
+# `dotnet add package Cortex.*` instead of forking. The local pack+consume path is
+# already proven on every CI run by eng/verify-packaging.sh (see ci.yml).
+#
+# Consuming the published feed from another repo (one-time):
+#   dotnet nuget add source https://nuget.pkg.github.com/<OWNER>/index.json \
+#     --name cortex --username <user> --password <a PAT with read:packages>
+# =============================================================================
+
+name: Publish packages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "NuGet version to publish (e.g. 0.1.0-alpha.2)"
+        type: string
+        required: true
+
+# GITHUB_TOKEN needs package-write to push to GitHub Packages.
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  DOTNET_NOLOGO: "true"
+
+jobs:
+  publish:
+    name: Pack & push to GitHub Packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            version="${GITHUB_REF_NAME#v}"   # strip the leading "v" from the release tag
+          else
+            version="${{ github.event.inputs.version }}"
+          fi
+          if [ -z "$version" ]; then echo "No version resolved." >&2; exit 1; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Publishing Cortex packages @ $version"
+
+      - name: Pack
+        run: |
+          dotnet pack Cortex.slnx -c Release -o ./artifacts \
+            -p:PackageVersion="${{ steps.ver.outputs.version }}" \
+            -p:RepositoryUrl="${{ github.server_url }}/${{ github.repository }}" \
+            -p:PackageProjectUrl="${{ github.server_url }}/${{ github.repository }}"
+
+      - name: Push to GitHub Packages
+        run: |
+          dotnet nuget push "./artifacts/*.nupkg" \
+            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+            --api-key "${{ secrets.GITHUB_TOKEN }}" \
+            --skip-duplicate

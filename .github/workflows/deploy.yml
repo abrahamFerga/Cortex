@@ -1,0 +1,160 @@
+# =============================================================================
+# deploy.yml — Build, push & deploy
+# -----------------------------------------------------------------------------
+# Runs on push to main (auto -> staging) and via workflow_dispatch (choose the
+# target environment, e.g. production with an approval gate).
+#
+# Flow: OIDC login -> build & push API image to ACR -> terraform apply (image
+# pinned to the pushed sha) -> smoke test /health.
+#
+# Required GitHub secrets/variables (see .github/workflows/README.md):
+#   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+#   ACR_LOGIN_SERVER
+#   TF_BACKEND_RESOURCE_GROUP, TF_BACKEND_STORAGE_ACCOUNT,
+#   TF_BACKEND_CONTAINER, TF_STATE_KEY
+# =============================================================================
+
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: choice
+        required: true
+        default: staging
+        options:
+          - staging
+          - production
+
+# Serialize deploys per environment; do NOT cancel in-flight deploys.
+concurrency:
+  group: deploy-${{ github.workflow }}-${{ github.event.inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # OIDC federation
+  contents: read
+
+env:
+  IMAGE_NAME: cortex-api
+  # On push to main we deploy staging; dispatch picks the input.
+  TARGET_ENV: ${{ github.event.inputs.environment || 'staging' }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build + push the API image to ACR, tagged with the git sha.
+  # ---------------------------------------------------------------------------
+  build-push:
+    name: Build & push image
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        run: az acr login --name "$(echo '${{ secrets.ACR_LOGIN_SERVER }}' | cut -d. -f1)"
+
+      - name: Compute image reference
+        id: meta
+        run: echo "image=${{ secrets.ACR_LOGIN_SERVER }}/${IMAGE_NAME}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push
+        run: |
+          docker build \
+            -f src/Cortex.Api/Dockerfile \
+            -t "${{ steps.meta.outputs.image }}" \
+            -t "${{ secrets.ACR_LOGIN_SERVER }}/${IMAGE_NAME}:latest" \
+            .
+          docker push "${{ steps.meta.outputs.image }}"
+          docker push "${{ secrets.ACR_LOGIN_SERVER }}/${IMAGE_NAME}:latest"
+
+  # ---------------------------------------------------------------------------
+  # Terraform apply, pinning the freshly-pushed image. The GitHub environment
+  # provides the approval gate (production requires manual approval).
+  # ---------------------------------------------------------------------------
+  terraform:
+    name: Terraform apply (${{ github.event.inputs.environment || 'staging' }})
+    needs: build-push
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    defaults:
+      run:
+        working-directory: infra
+    outputs:
+      api_url: ${{ steps.tf_out.outputs.api_url }}
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Terraform init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TF_BACKEND_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.TF_BACKEND_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.TF_BACKEND_CONTAINER }}" \
+            -backend-config="key=${{ secrets.TF_STATE_KEY }}"
+
+      - name: Terraform apply
+        run: |
+          terraform apply -auto-approve \
+            -var-file="environments/${TARGET_ENV}.tfvars" \
+            -var "api_image=${{ needs.build-push.outputs.image }}"
+
+      - name: Capture outputs
+        id: tf_out
+        run: echo "api_url=$(terraform output -raw api_url)" >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------------
+  # Smoke test: hit /health after deploy. Retries to absorb cold starts.
+  # ---------------------------------------------------------------------------
+  smoke-test:
+    name: Smoke test /health
+    needs: terraform
+    runs-on: ubuntu-latest
+    steps:
+      - name: Curl /health (with retries)
+        run: |
+          URL="${{ needs.terraform.outputs.api_url }}/health"
+          echo "Probing $URL"
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$URL" || echo "000")
+            echo "Attempt $i -> HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "Health check passed."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Health check failed after retries."
+          exit 1

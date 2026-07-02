@@ -1,0 +1,51 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+# Shell scripts must stay LF so they run on the Linux CI runner.
+[*.sh]
+end_of_line = lf
+
+[*.{cs,csx}]
+indent_size = 4
+# Namespace & usings
+csharp_style_namespace_declarations = file_scoped:warning
+dotnet_sort_system_directives_first = true
+csharp_using_directive_placement = outside_namespace:warning
+# Modern C# preferences
+csharp_style_var_for_built_in_types = false:suggestion
+csharp_prefer_braces = true:suggestion
+csharp_style_prefer_primary_constructors = true:suggestion
+dotnet_style_require_accessibility_modifiers = always:warning
+# Quieten analyzers that fight idiomatic application (non-library) code under TreatWarningsAsErrors.
+dotnet_diagnostic.CA1515.severity = none   # types could be made internal (this is an app, not a public library)
+dotnet_diagnostic.CA1716.severity = none   # type names colliding with VB keywords (Error, Result) — single-language app
+dotnet_diagnostic.CA1711.severity = none   # reserved type-name suffixes (UserPermission, ...) — domain names win
+dotnet_diagnostic.CA2007.severity = none   # ConfigureAwait(false) — not needed outside reusable libraries
+dotnet_diagnostic.CA1062.severity = none   # validate public args — nullable reference types already enforce this
+dotnet_diagnostic.CA1812.severity = none   # internal types never instantiated (DI-activated handlers, modules)
+dotnet_diagnostic.CA1848.severity = none   # LoggerMessage source-gen delegates — not worth it for scaffold logging
+dotnet_diagnostic.CA1822.severity = none   # module tool methods are instance methods by convention (DI-backed), even when a stub doesn't yet read state
+
+[*.{json,js,jsx,ts,tsx,yml,yaml,tf,tfvars}]
+indent_size = 2
+
+[*.{csproj,props,targets,slnx}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+# EF Core migrations are auto-generated — don't subject them to our analyzers.
+[**/Migrations/**.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none
+
+# Test projects: underscore_test_names and lax perf rules are idiomatic; keep compiler warnings only.
+[tests/**.cs]
+dotnet_analyzer_diagnostic.severity = none

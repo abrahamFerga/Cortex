@@ -1,0 +1,17 @@
+<Project>
+
+  <!--
+    Imported AFTER each project file, so $(IsPackable) reflects the project's final value
+    (Directory.Build.props sets the default to false; packable libraries override to true).
+    Embeds the repository README as the NuGet package readme for every packable project,
+    so packages are self-describing on a feed and `dotnet pack` is warning-clean.
+  -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true'">
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,37 @@
+# =============================================================================
+# staging.tfvars.example
+# -----------------------------------------------------------------------------
+# Copy to staging.tfvars. Mid-tier sizing; min 1 replica to avoid cold starts.
+#   terraform apply -var-file=environments/staging.tfvars
+# =============================================================================
+
+environment = "staging"
+location    = "westeurope"
+
+# --- Database (general purpose, small) --------------------------------------
+postgres_sku_name   = "GP_Standard_D2s_v3"
+postgres_storage_mb = 65536
+# postgres_aad_admin_object_id      = "00000000-0000-0000-0000-000000000000"
+# postgres_aad_admin_principal_name = "staging-dba@contoso.com"
+
+# --- Redis (Standard C1, replicated) ----------------------------------------
+redis_sku_name = "Standard"
+redis_family   = "C"
+redis_capacity = 1
+
+# --- Container App -----------------------------------------------------------
+api_cpu          = 1.0
+api_memory       = "2Gi"
+api_min_replicas = 1
+api_max_replicas = 3
+# api_image overridden by the deploy pipeline.
+
+# --- CIAM / auth -------------------------------------------------------------
+ciam_tenant_id      = ""
+ciam_authority_host = ""
+spa_redirect_uris   = ["https://staging.cortex.example.com"]
+
+# --- GitHub OIDC -------------------------------------------------------------
+github_owner        = "your-org"
+github_repo         = "Cortex"
+github_environments = ["staging"]

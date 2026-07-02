@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Third domain module (the-lawyer / legal). Stateless — proves Cortex spans a third, very different industry. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.Extensions.AI" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Cortex.Core\Cortex.Core.csproj" />
+    <ProjectReference Include="..\..\src\Cortex.Application\Cortex.Application.csproj" />
+    <ProjectReference Include="..\..\src\Cortex.Modules.Sdk\Cortex.Modules.Sdk.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,45 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+artifacts/
+[Dd]ebug/
+[Rr]elease/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Rider / VS Code
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+*.local
+
+# Secrets & local config
+appsettings.*.local.json
+.env
+.env.*
+!.env.example
+secrets.json
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.example.tfvars
+crash.log
+override.tf
+override.tf.json
+
+# OS
+.DS_Store
+Thumbs.db

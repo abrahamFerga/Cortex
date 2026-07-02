@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- EF Core, audit, AI provider wiring, multi-tenancy, module catalog. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Cortex.Infrastructure</PackageId>
+    <Description>Infrastructure for Cortex — EF Core multi-tenant persistence, audit log, AI provider wiring (OpenAI/AzureOpenAI/Ollama), agent runner.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
+
+    <PackageReference Include="Microsoft.Extensions.AI" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
+    <PackageReference Include="Microsoft.Agents.AI" />
+    <PackageReference Include="Microsoft.Agents.AI.OpenAI" />
+    <PackageReference Include="Azure.AI.OpenAI" />
+    <PackageReference Include="Azure.Identity" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cortex.Core\Cortex.Core.csproj" />
+    <ProjectReference Include="..\Cortex.Application\Cortex.Application.csproj" />
+    <ProjectReference Include="..\Cortex.Modules.Sdk\Cortex.Modules.Sdk.csproj" />
+  </ItemGroup>
+
+</Project>

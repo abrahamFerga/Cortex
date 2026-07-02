@@ -1,0 +1,4 @@
+# Shell scripts must keep LF line endings so they run on the Linux CI runner — the
+# repo .editorconfig defaults editors to CRLF, which would break bash on Linux with
+# "$'\r': command not found".
+*.sh text eol=lf

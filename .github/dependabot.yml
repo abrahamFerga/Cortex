@@ -1,0 +1,43 @@
+# Automated dependency updates. Cortex is a security-first platform, so keeping its
+# dependencies (and base images, and CI actions) patched is part of the product story,
+# not an afterthought. Minor/patch bumps are grouped to keep PR noise down; majors come
+# as individual PRs so they get a proper review.
+version: 2
+updates:
+  # .NET packages — Central Package Management, so versions live in Directory.Packages.props
+  # (covers both Cortex.slnx and samples/Cortex.Samples.slnx, which share it).
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      dotnet-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Frontend (@cortex/ui) npm dependencies.
+  - package-ecosystem: "npm"
+    directory: "/frontend/cortex-ui"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      frontend-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # GitHub Actions pinned in the CI / deploy / publish / pr-check workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Base images in the API Dockerfile (dotnet sdk / aspnet).
+  - package-ecosystem: "docker"
+    directory: "/src/Cortex.Api"
+    schedule:
+      interval: "weekly"

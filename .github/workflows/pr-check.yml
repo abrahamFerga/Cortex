@@ -1,0 +1,143 @@
+# =============================================================================
+# pr-check.yml — Terraform PR validation
+# -----------------------------------------------------------------------------
+# Runs on pull requests that touch infra/**. Checks formatting, validates the
+# configuration, runs a dev plan, and posts the plan summary as a PR comment.
+#
+# Required GitHub secrets/variables (see .github/workflows/README.md):
+#   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+#   TF_BACKEND_RESOURCE_GROUP, TF_BACKEND_STORAGE_ACCOUNT,
+#   TF_BACKEND_CONTAINER, TF_STATE_KEY
+# =============================================================================
+
+name: Terraform PR Check
+
+on:
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/pr-check.yml"
+
+concurrency:
+  group: tf-pr-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write       # OIDC federation
+  contents: read
+  pull-requests: write  # post the plan comment
+
+env:
+  ARM_USE_OIDC: "true"
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+jobs:
+  terraform:
+    name: fmt / validate / plan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Terraform fmt (check)
+        id: fmt
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Terraform init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TF_BACKEND_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.TF_BACKEND_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.TF_BACKEND_CONTAINER }}" \
+            -backend-config="key=${{ secrets.TF_STATE_KEY }}"
+
+      - name: Terraform validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform plan
+        id: plan
+        # Capture output to a file for the PR comment, but still surface the real
+        # exit code as the step outcome (the comment step uses it). tee preserves
+        # the terraform exit status via pipefail.
+        shell: bash
+        run: |
+          set -o pipefail
+          terraform plan -no-color -input=false \
+            -var-file="environments/dev.tfvars" 2>&1 | tee plan.txt
+        continue-on-error: true
+
+      - name: Post plan as PR comment
+        uses: actions/github-script@v7
+        env:
+          FMT_OUTCOME: ${{ steps.fmt.outcome }}
+          VALIDATE_OUTCOME: ${{ steps.validate.outcome }}
+          PLAN_OUTCOME: ${{ steps.plan.outcome }}
+        with:
+          script: |
+            const fs = require('fs');
+            let plan = '';
+            try { plan = fs.readFileSync('infra/plan.txt', 'utf8'); }
+            catch { plan = '(no plan output)'; }
+
+            // Keep the comment under GitHub's 65k limit.
+            const max = 60000;
+            if (plan.length > max) {
+              plan = plan.slice(0, max) + '\n... (truncated) ...';
+            }
+
+            const marker = '<!-- cortex-tf-plan -->';
+            const body = [
+              marker,
+              '## Terraform Plan (dev)',
+              '',
+              `| Step | Result |`,
+              `| --- | --- |`,
+              `| fmt | \`${process.env.FMT_OUTCOME}\` |`,
+              `| validate | \`${process.env.VALIDATE_OUTCOME}\` |`,
+              `| plan | \`${process.env.PLAN_OUTCOME}\` |`,
+              '',
+              '<details><summary>Show plan</summary>',
+              '',
+              '```',
+              plan,
+              '```',
+              '',
+              '</details>',
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+
+            // Upsert: replace our previous comment if present.
+            const comments = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.data.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      - name: Fail if fmt/validate/plan failed
+        if: steps.fmt.outcome == 'failure' || steps.validate.outcome == 'failure' || steps.plan.outcome == 'failure'
+        run: |
+          echo "fmt=${{ steps.fmt.outcome }} validate=${{ steps.validate.outcome }} plan=${{ steps.plan.outcome }}"
+          exit 1
