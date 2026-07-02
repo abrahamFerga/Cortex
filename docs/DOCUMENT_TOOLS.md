@@ -50,6 +50,29 @@ all Cortex tools, each is permission-gated *before the model sees its schema*:
 The `user` role baseline grants all four; the admin console's Security view lists them under
 **Files & documents**.
 
+## Turning the tools on and off
+
+Three gates, from coarsest to finest — all configuration, no code:
+
+1. **Per deployment** — the whole pack is a config switch (on by default, since it has no external
+   dependencies). Disabling removes the agent-facing tools entirely; the file store and the
+   module-facing seams (`IDocumentReader`/`IPdfRenderer`) stay, because module code builds on them:
+
+   ```jsonc
+   "Documents": { "Enabled": false }
+   ```
+
+2. **Per tenant** — a tenant admin edits the role baselines in the admin console's Roles editor:
+   remove the `tools.documents.*` permissions from a role and that role's users lose the tools at
+   the next turn (runtime-editable, audited, no restart).
+
+3. **Per user** — the ordinary permission model: individual grants/revokes, checked before the
+   model ever sees a tool schema.
+
+The same layering applies to the other platform tool packs: knowledge search is `Rag:Enabled` +
+`tools.knowledge.*`, and connector tools are the Integrations page (per-tenant enable) +
+`tools.connectors.*`.
+
 ## How attachments reach the agent
 
 The chat composer uploads the file first, then appends a plain-text reference to the message:

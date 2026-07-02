@@ -110,9 +110,19 @@ public static class InfrastructureSetup
         services.AddScoped<IFileStore, FileStore>();
 
         // Platform document tools, appended to every module's agent (each permission-gated). The
-        // ocr_document tool appears only when the host registers an IOcrEngine implementation.
-        services.AddScoped<DocumentTools>();
-        services.AddSingleton<IPlatformToolSource, DocumentToolSource>();
+        // ocr_document tool appears only when the host registers an IOcrEngine implementation, and
+        // the whole pack can be switched off per deployment (Documents:Enabled=false) — per-tenant
+        // and per-user gating stays with the RBAC layer (tools.documents.* in the role editor).
+        services.Configure<Cortex.Application.Documents.DocumentOptions>(
+            builder.Configuration.GetSection(Cortex.Application.Documents.DocumentOptions.SectionName));
+        var documentOptions = builder.Configuration
+            .GetSection(Cortex.Application.Documents.DocumentOptions.SectionName)
+            .Get<Cortex.Application.Documents.DocumentOptions>() ?? new Cortex.Application.Documents.DocumentOptions();
+        if (documentOptions.Enabled)
+        {
+            services.AddScoped<DocumentTools>();
+            services.AddSingleton<IPlatformToolSource, DocumentToolSource>();
+        }
 
         // The same extraction/rendering for MODULE CODE (job handlers, reports) — Application-level
         // seams so modules never reference Infrastructure directly.

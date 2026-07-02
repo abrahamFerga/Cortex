@@ -35,7 +35,9 @@ all runnable with no AI key via a built-in Mock provider. See [README.md](README
   conversation row, so multi-turn context survives restarts and channel hops.
 - **Platform document tools** — every module's agent can read PDFs (PdfPig), generate PDFs, list
   files, and OCR (pluggable `IOcrEngine` seam), over a tenant-scoped **file store** (local disk or
-  Azure Blob). Module code gets the same via `IDocumentReader`/`IPdfRenderer`.
+  Azure Blob). Module code gets the same via `IDocumentReader`/`IPdfRenderer`. The pack is
+  switchable per deployment (`Documents:Enabled`, on by default) on top of the per-tenant
+  (role-baseline) and per-user (permission) gates.
 - **WhatsApp channel** (Meta Cloud API) — HMAC-verified webhook, JIT phone-user provisioning,
   inbound media into the file store, per-tenant module binding; off by default, keyless E2E tests.
 - **Background jobs** — modules enqueue long-running work (`IJobQueue`/`IJobHandler`); the processor
