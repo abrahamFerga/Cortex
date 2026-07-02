@@ -12,10 +12,10 @@ Derived from [research/legal-ai.md](../research/legal-ai.md) (Harvey + competito
 | 4. Tenant clause library + playbook | ✅ shipped (`90fedfa`) |
 | 5. Drafting to work product | ✅ chain prescribed + tested (`90fedfa`) |
 | 6. Playbook contract review | ✅ chain prescribed + full-path test (LegalReviewTests) |
-| 7. Bulk review table | ⬜ needs the background-job platform primitive — next major chunk |
+| 7. Bulk review table | ✅ shipped (`26d330f`) — job-backed (`090e2ec`), excerpt-grounded cells, table filed on the matter as PDF |
 | 8. Guided workflows | ✅ starter prompts drive the packaged chains |
 | 9. WhatsApp client intake | ✅ channel binds to legal per tenant; intake E2E test (WhatsAppLegalIntakeTests) |
-| 10. Matter-level ACLs (ethical walls) | ⬜ per-resource ACL seam completion — with item 7 |
+| 10. Matter-level ACLs (ethical walls) | ⬜ per-resource ACL seam completion — design now folded into [PLATFORM_CONNECTORS_RAG_PLAN.md](PLATFORM_CONNECTORS_RAG_PLAN.md) (the RAG ACL snapshot uses the same seam) |
 
 Pending user decisions: **product name** (EnBanc vs AdLitem, below) and **repo extraction timing**
 (recommended: at first tagged release — see Repo strategy).

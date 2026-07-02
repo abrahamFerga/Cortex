@@ -291,6 +291,11 @@ green, and the React frontend has vitest unit tests (permission/API/chat-client 
 Open items: provision the Entra External ID tenant + user flows (the app registrations are already
 Terraform-managed, and the publish-on-release workflow is wired — it just needs a tagged release).
 
+Next platform capabilities — **data-source connectors** (SharePoint/M365, Azure Blob, …; per-tenant
+enable/disable), an **OpenClaw-style `cortex init` install wizard**, and an opt-in **permission-aware
+RAG pipeline** (per-matter/per-project collections, hybrid retrieval, ACL-trimmed) — are designed in
+[docs/PLATFORM_CONNECTORS_RAG_PLAN.md](docs/PLATFORM_CONNECTORS_RAG_PLAN.md).
+
 See [CHANGELOG.md](CHANGELOG.md) for the full scope of the upcoming `0.1.0-alpha`.
 
 ## Contributing
