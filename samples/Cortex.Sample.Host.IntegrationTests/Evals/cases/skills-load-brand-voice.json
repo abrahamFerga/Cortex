@@ -1,0 +1,9 @@
+{
+  // Progressive disclosure end-to-end: the advertised skill is loadable through the
+  // platform tool pipeline (RBAC-filtered, audited).
+  "name": "skills-load-brand-voice",
+  "module": "finance",
+  "message": "Load the brand-voice skill and follow its instructions",
+  "expectToolCalls": ["load_skill"],
+  "expectApproval": false
+}

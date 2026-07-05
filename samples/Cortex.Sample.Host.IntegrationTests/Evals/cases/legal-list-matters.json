@@ -1,0 +1,8 @@
+{
+  // Read-only matter listing: tool fires, no approval friction on a read.
+  "name": "legal-list-matters",
+  "module": "legal",
+  "message": "List my matters",
+  "expectToolCalls": ["list_matters"],
+  "expectApproval": false
+}

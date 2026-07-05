@@ -18,4 +18,8 @@
     <ProjectReference Include="..\Cortex.Sample.Host\Cortex.Sample.Host.csproj" />
   </ItemGroup>
 
+  <ItemGroup Label="Golden-conversation eval cases (data, not code)">
+    <Content Include="Evals\cases\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

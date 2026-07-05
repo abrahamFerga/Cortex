@@ -1,0 +1,8 @@
+{
+  // The bread-and-butter intent: a spending question must route to the finance summary tool.
+  "name": "finance-spend-summary",
+  "module": "finance",
+  "message": "Summarize my spending on groceries this month",
+  "expectToolCalls": ["summarize_spending"],
+  "expectApproval": false
+}

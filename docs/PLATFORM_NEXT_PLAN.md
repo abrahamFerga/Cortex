@@ -84,8 +84,12 @@ KV references instead of env vars).
   cloud-neutral path; per-cloud Terraform trees, not a leaky abstraction.
 - [ ] **Phase 6 — New ideas backlog** (grow as they land):
   - **Per-tenant token budgets → org budgets + alerts** (usage page already tracks spend).
-  - **Eval harness**: golden-conversation tests running against the Mock provider in CI, so
-    instruction/profile changes are regression-tested like code.
+  - [x] **Eval harness** (docs/EVALS.md): golden-conversation evals as JSON data under
+    `samples/Cortex.Sample.Host.IntegrationTests/Evals/cases/` — one user turn + the
+    behavioral contract (tools routed, approval gate fired, reply must/mustn't say).
+    Runs through the REAL pipeline (auth, RBAC filtering, approval, audit, Mock provider)
+    via the AG-UI stream; protocol health asserted on every case; add a case = drop a JSON
+    file. 5 seed cases incl. the approval contract and the skills loop. Delivered.
   - **Prompt provenance**: stamp each conversation turn with the hash of the effective
     instructions (profile + manifest + system prompt) for reproducibility/audit.
   - **Notification channel seam**: deliver job completions/calendar reminders via chat push,
