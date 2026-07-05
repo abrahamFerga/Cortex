@@ -35,4 +35,47 @@ public static class TenantAiSettingsValidator
 
         return null;
     }
+
+    /// <summary>Providers a tenant may switch to at runtime ("None" disables chat for the tenant).</summary>
+    public static readonly IReadOnlyList<string> AllowedProviders = ["Mock", "OpenAI", "AzureOpenAI", "Ollama", "None"];
+
+    /// <summary>
+    /// Validates a tenant's provider-connection override. <paramref name="hasApiKey"/> is whether a
+    /// key WILL be on file after this save (a newly supplied one, or an existing vaulted one being
+    /// kept) — the key itself never reaches validation.
+    /// </summary>
+    public static string? ValidateProvider(string? provider, string? model, string? endpoint, bool hasApiKey)
+    {
+        if (model is { Length: > 200 })
+        {
+            return "model must be 200 characters or fewer.";
+        }
+
+        if (endpoint is not null &&
+            (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")))
+        {
+            return "endpoint must be an absolute http(s) URL.";
+        }
+
+        if (provider is null)
+        {
+            return null; // inheriting the deployment connection; a bare model override is fine
+        }
+
+        if (!AllowedProviders.Contains(provider, StringComparer.Ordinal))
+        {
+            return $"provider must be one of: {string.Join(", ", AllowedProviders)} — or empty to use the deployment default.";
+        }
+
+        return provider switch
+        {
+            "OpenAI" when string.IsNullOrWhiteSpace(model) => "model is required for the OpenAI provider.",
+            "OpenAI" when !hasApiKey => "An API key is required for the OpenAI provider.",
+            "AzureOpenAI" when string.IsNullOrWhiteSpace(model) => "model (deployment name) is required for the AzureOpenAI provider.",
+            "AzureOpenAI" when string.IsNullOrWhiteSpace(endpoint) => "endpoint is required for the AzureOpenAI provider.",
+            "Ollama" when string.IsNullOrWhiteSpace(model) => "model is required for the Ollama provider.",
+            "Ollama" when string.IsNullOrWhiteSpace(endpoint) => "endpoint is required for the Ollama provider (e.g. http://localhost:11434/v1).",
+            _ => null,
+        };
+    }
 }

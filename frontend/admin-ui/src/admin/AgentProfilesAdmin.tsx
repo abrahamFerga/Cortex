@@ -13,6 +13,8 @@ interface EditorState {
   isDefault: boolean;
   /** null = every permitted tool; a list = only those tools (narrows RBAC, never widens it). */
   toolNames: string[] | null;
+  /** Per-agent model within the tenant's provider; "" = inherit the tenant/deployment model. */
+  model: string;
 }
 
 const emptyEditor = (moduleId: string): EditorState => ({
@@ -22,6 +24,7 @@ const emptyEditor = (moduleId: string): EditorState => ({
   mode: "Append",
   isDefault: true,
   toolNames: null,
+  model: "",
 });
 
 /** The tool name is the last segment of its permission (`tools.legal.list_matters` → `list_matters`). */
@@ -43,7 +46,7 @@ export function AgentProfilesAdmin() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["admin", "agent-profiles"] });
   const save = useMutation({
-    mutationFn: (p: EditorState) => api.admin.upsertAgentProfile(p),
+    mutationFn: (p: EditorState) => api.admin.upsertAgentProfile({ ...p, model: p.model.trim() || null }),
     onSuccess: () => {
       setEditor(null);
       invalidate();
@@ -125,7 +128,7 @@ export function AgentProfilesAdmin() {
               <div className="flex shrink-0 gap-2">
                 <button
                   type="button"
-                  onClick={() => setEditor({ ...p, toolNames: p.toolNames ?? null })}
+                  onClick={() => setEditor({ ...p, toolNames: p.toolNames ?? null, model: p.model ?? "" })}
                   className="focus-ring rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 dark:border-slate-600 dark:text-slate-300"
                 >
                   Edit
@@ -182,6 +185,23 @@ export function AgentProfilesAdmin() {
                 className={inputClass}
               />
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="profile-model" className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+              Model
+            </label>
+            <input
+              id="profile-model"
+              value={editor.model}
+              onChange={(e) => setEditor({ ...editor, model: e.target.value })}
+              placeholder="Inherit the tenant/deployment model"
+              className={inputClass}
+            />
+            <p className="text-xs text-slate-400">
+              This agent's own model (e.g. a cheaper one for a narrow task), within the tenant's provider —
+              configured under AI Settings.
+            </p>
           </div>
 
           <div className="space-y-1">

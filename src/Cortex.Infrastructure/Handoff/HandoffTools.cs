@@ -28,6 +28,7 @@ public sealed class HandoffTools(
     ITenantModuleStore tenantModules,
     IToolRegistry toolRegistry,
     ITenantAiSettings tenantAiSettings,
+    ITenantChatClientResolver chatClients,
     IAgentProfileResolver agentProfiles,
     ICurrentUser currentUser)
 {
@@ -53,12 +54,6 @@ public sealed class HandoffTools(
             return $"The '{manifest.DisplayName}' module is not enabled for this tenant.";
         }
 
-        var chatClient = services.GetService<IChatClient>();
-        if (chatClient is null)
-        {
-            return "The AI provider is not configured for this deployment.";
-        }
-
         // The nested tool set: the target module's tools the CALLER may use, minus anything
         // side-effecting (manifest- or tool-flagged) and minus the handoff tools themselves.
         var approvalRequired = manifest.Tools
@@ -74,6 +69,24 @@ public sealed class HandoffTools(
 
         var aiSettings = await tenantAiSettings.ResolveAsync(cancellationToken);
         var profile = await agentProfiles.ResolveActiveAsync(targetModuleId, cancellationToken);
+
+        // The nested turn runs on the same tenant connection (and the target module's profile
+        // model) as a direct chat with that module would.
+        IChatClient? chatClient;
+        try
+        {
+            chatClient = await chatClients.ResolveAsync(aiSettings, profile?.Model, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return "The AI provider connection is misconfigured for this tenant.";
+        }
+
+        if (chatClient is null)
+        {
+            return "The AI provider is not configured for this deployment.";
+        }
+
         var instructions =
             InstructionComposer.Compose(aiSettings.SystemPrompt, manifest.AgentInstructions, profile) +
             "\n\nYou are answering a single question relayed from another assistant on the user's behalf. " +

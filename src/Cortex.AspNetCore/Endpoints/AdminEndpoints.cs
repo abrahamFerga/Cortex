@@ -2,10 +2,12 @@ using Cortex.Application.Ai;
 using Cortex.Application.Auditing;
 using Cortex.Application.Authorization;
 using Cortex.Application.Modules;
+using Cortex.Application.Secrets;
 using Cortex.Application.Usage;
 using Cortex.AspNetCore.Setup;
 using Cortex.Core.Identity;
 using Cortex.Core.Platform;
+using Cortex.Infrastructure.Ai;
 using Cortex.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -175,7 +177,7 @@ public static class AdminEndpoints
 
             var profiles = await query
                 .OrderBy(p => p.ModuleId).ThenBy(p => p.Name)
-                .Select(p => new AgentProfileDto(p.Id, p.ModuleId, p.Name, p.Instructions, p.Mode.ToString(), p.IsDefault, p.ToolNames))
+                .Select(p => new AgentProfileDto(p.Id, p.ModuleId, p.Name, p.Instructions, p.Mode.ToString(), p.IsDefault, p.ToolNames, p.Model))
                 .ToListAsync(ct);
             return Results.Ok(profiles);
         })
@@ -236,6 +238,12 @@ public static class AdminEndpoints
                 }
             }
 
+            var profileModel = string.IsNullOrWhiteSpace(body.Model) ? null : body.Model.Trim();
+            if (profileModel is { Length: > 200 })
+            {
+                return Results.BadRequest("model must be 200 characters or fewer.");
+            }
+
             if (body.IsDefault)
             {
                 var currentDefaults = await db.AgentProfiles
@@ -259,6 +267,7 @@ public static class AdminEndpoints
                     Mode = mode,
                     IsDefault = body.IsDefault,
                     ToolNames = toolNames,
+                    Model = profileModel,
                 };
                 db.AgentProfiles.Add(profile);
             }
@@ -268,10 +277,11 @@ public static class AdminEndpoints
                 profile.Mode = mode;
                 profile.IsDefault = body.IsDefault;
                 profile.ToolNames = toolNames;
+                profile.Model = profileModel;
             }
 
             await db.SaveChangesAsync(ct);
-            return Results.Ok(new AgentProfileDto(profile.Id, profile.ModuleId, profile.Name, profile.Instructions, profile.Mode.ToString(), profile.IsDefault, profile.ToolNames));
+            return Results.Ok(new AgentProfileDto(profile.Id, profile.ModuleId, profile.Name, profile.Instructions, profile.Mode.ToString(), profile.IsDefault, profile.ToolNames, profile.Model));
         })
         .RequireAuthorization(PermissionRequirement.PolicyName(Permissions.ManageAiSettings))
         .WithName("Admin_UpsertAgentProfile");
@@ -312,50 +322,79 @@ public static class AdminEndpoints
     private static void MapAiSettings(RouteGroupBuilder group)
     {
         // The tenant's AI overrides plus the deployment defaults (so the UI can show "override or default").
+        // The API key is write-only: the response only ever says whether one is on file.
         group.MapGet("/ai-settings", async (PlatformDbContext db, IOptions<AiOptions> ai, CancellationToken ct) =>
         {
             var row = await db.TenantAiSettings.FirstOrDefaultAsync(ct);
             var defaults = ai.Value;
             return Results.Ok(new AiSettingsDto(
                 row?.SystemPrompt, row?.MaxConversationTokens, row?.MaxMonthlyTokens,
-                defaults.SystemPrompt, defaults.MaxConversationTokens, defaults.MaxMonthlyTokens));
+                row?.Provider, row?.Model, row?.Endpoint, row?.ApiKeySecretRef is not null,
+                defaults.SystemPrompt, defaults.MaxConversationTokens, defaults.MaxMonthlyTokens,
+                defaults.Provider, defaults.Model));
         })
         .RequireAuthorization(PermissionRequirement.PolicyName(Permissions.ManageAiSettings))
         .WithName("Admin_AiSettings");
 
-        // Set the tenant's AI overrides. Null/blank fields clear the override (fall back to the default). The
-        // agent runner applies these each turn; the change is auto-audited as an entity change.
+        // Set the tenant's AI overrides — including switching the provider connection at runtime.
+        // Null/blank fields clear the override (fall back to the default). ApiKey contract: null =
+        // keep the stored key, non-empty = replace it (vaulted, write-only), "" = clear it. The
+        // agent runner applies all of this on the very next turn; the change is auto-audited.
         group.MapPut("/ai-settings", async (
-            [FromBody] AiSettingsRequest body, PlatformDbContext db, ICurrentUser current, CancellationToken ct) =>
+            [FromBody] AiSettingsRequest body, PlatformDbContext db, ISecretVault vault, ICurrentUser current, CancellationToken ct) =>
         {
             if (current.TenantId is not Guid tenantId)
             {
                 return Results.BadRequest("No tenant context.");
             }
 
-            // Validate the value we will actually store (trimmed), so a length check reflects the persisted prompt.
+            // Validate the values we will actually store (trimmed), so checks reflect what persists.
             var systemPrompt = string.IsNullOrWhiteSpace(body.SystemPrompt) ? null : body.SystemPrompt.Trim();
             if (TenantAiSettingsValidator.Validate(systemPrompt, body.MaxConversationTokens, body.MaxMonthlyTokens) is { } error)
             {
                 return Results.BadRequest(error);
             }
 
+            var provider = string.IsNullOrWhiteSpace(body.Provider) ? null : body.Provider.Trim();
+            var model = string.IsNullOrWhiteSpace(body.Model) ? null : body.Model.Trim();
+            var endpoint = string.IsNullOrWhiteSpace(body.Endpoint) ? null : body.Endpoint.Trim();
+
             var row = await db.TenantAiSettings.FirstOrDefaultAsync(ct);
+
+            // Whether a key will be on file AFTER this save: a new one, or a kept existing one.
+            var clearingKey = body.ApiKey is { Length: 0 };
+            var willHaveKey = !string.IsNullOrEmpty(body.ApiKey) || (!clearingKey && row?.ApiKeySecretRef is not null);
+            if (TenantAiSettingsValidator.ValidateProvider(provider, model, endpoint, willHaveKey) is { } providerError)
+            {
+                return Results.BadRequest(providerError);
+            }
+
             if (row is null)
             {
-                db.TenantAiSettings.Add(new TenantAiSettings
-                {
-                    TenantId = tenantId,
-                    SystemPrompt = systemPrompt,
-                    MaxConversationTokens = body.MaxConversationTokens,
-                    MaxMonthlyTokens = body.MaxMonthlyTokens,
-                });
+                row = new TenantAiSettings { TenantId = tenantId };
+                db.TenantAiSettings.Add(row);
             }
-            else
+
+            row.SystemPrompt = systemPrompt;
+            row.MaxConversationTokens = body.MaxConversationTokens;
+            row.MaxMonthlyTokens = body.MaxMonthlyTokens;
+            row.Provider = provider;
+            row.Model = model;
+            row.Endpoint = endpoint;
+
+            if (!string.IsNullOrEmpty(body.ApiKey))
             {
-                row.SystemPrompt = systemPrompt;
-                row.MaxConversationTokens = body.MaxConversationTokens;
-                row.MaxMonthlyTokens = body.MaxMonthlyTokens;
+                var previous = row.ApiKeySecretRef;
+                row.ApiKeySecretRef = await vault.StoreAsync(TenantChatClientResolver.ApiKeyScope, body.ApiKey, ct);
+                if (previous is not null)
+                {
+                    await vault.ForgetAsync(previous, ct);
+                }
+            }
+            else if (clearingKey && row.ApiKeySecretRef is not null)
+            {
+                await vault.ForgetAsync(row.ApiKeySecretRef, ct);
+                row.ApiKeySecretRef = null;
             }
 
             await db.SaveChangesAsync(ct);
@@ -1132,17 +1171,23 @@ public static class AdminEndpoints
 
     private sealed record AiSettingsDto(
         string? SystemPromptOverride, int? MaxConversationTokensOverride, long? MaxMonthlyTokensOverride,
-        string DefaultSystemPrompt, int DefaultMaxConversationTokens, long DefaultMaxMonthlyTokens);
-    private sealed record AiSettingsRequest(string? SystemPrompt, int? MaxConversationTokens, long? MaxMonthlyTokens);
+        string? ProviderOverride, string? ModelOverride, string? EndpointOverride, bool HasApiKey,
+        string DefaultSystemPrompt, int DefaultMaxConversationTokens, long DefaultMaxMonthlyTokens,
+        string DefaultProvider, string DefaultModel);
+
+    /// <summary>ApiKey is write-only: null = keep the stored key, non-empty = replace, "" = clear.</summary>
+    private sealed record AiSettingsRequest(
+        string? SystemPrompt, int? MaxConversationTokens, long? MaxMonthlyTokens,
+        string? Provider, string? Model, string? Endpoint, string? ApiKey);
 
     private sealed record AgentProfileDto(
         Guid Id, string ModuleId, string Name, string Instructions, string Mode, bool IsDefault,
-        IReadOnlyList<string>? ToolNames);
+        IReadOnlyList<string>? ToolNames, string? Model);
 
     /// <summary>Create or update a named agent profile for a module (matched by moduleId + name).</summary>
     private sealed record AgentProfileRequest(
         string? ModuleId, string? Name, string? Instructions, string? Mode, bool IsDefault,
-        IReadOnlyList<string>? ToolNames);
+        IReadOnlyList<string>? ToolNames, string? Model);
 
     private sealed record InstructionSnapshotDto(string Hash, string Instructions, DateTimeOffset FirstSeenAt);
 

@@ -8,9 +8,15 @@ const SETTINGS = {
   systemPromptOverride: null,
   maxConversationTokensOverride: null,
   maxMonthlyTokensOverride: null,
+  providerOverride: null,
+  modelOverride: null,
+  endpointOverride: null,
+  hasApiKey: false,
   defaultSystemPrompt: "You are Cortex.",
   defaultMaxConversationTokens: 0,
   defaultMaxMonthlyTokens: 0,
+  defaultProvider: "Mock",
+  defaultModel: "gpt-4o-mini",
 };
 
 function stubApi() {
@@ -66,6 +72,10 @@ describe("AiSettingsAdmin", () => {
         systemPrompt: null,
         maxConversationTokens: 5000,
         maxMonthlyTokens: null,
+        provider: null,
+        model: null,
+        endpoint: null,
+        apiKey: null,
       });
     });
   });

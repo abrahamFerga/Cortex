@@ -280,6 +280,11 @@ public static class InfrastructureSetup
             services.AddSingleton<IChatClient>(_ => ChatClientFactory.Create(aiOptions));
         }
 
+        // The per-turn client: tenant provider connection (vaulted key) + per-agent model override,
+        // cached per distinct connection. The singleton above remains the deployment default for
+        // any host code that wants a bare client.
+        services.AddSingleton<ITenantChatClientResolver, TenantChatClientResolver>();
+
         services.AddSingleton<IModuleCatalog, ModuleCatalog>();
         services.AddSingleton<IToolRegistry, ToolRegistry>();
         services.AddScoped<ITenantModuleStore, TenantModuleStore>();

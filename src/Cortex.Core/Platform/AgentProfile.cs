@@ -46,4 +46,10 @@ public sealed class AgentProfile : EntityBase, ITenantOwned
     /// grants a tool the user's permissions don't already allow.
     /// </summary>
     public List<string>? ToolNames { get; set; }
+
+    /// <summary>
+    /// The model/deployment name THIS agent runs on (Foundry-style per-agent model choice), within
+    /// the tenant's (or deployment's) provider. Null = the tenant/deployment default model.
+    /// </summary>
+    public string? Model { get; set; }
 }

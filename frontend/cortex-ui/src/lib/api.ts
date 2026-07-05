@@ -150,9 +150,17 @@ export interface AiSettings {
   systemPromptOverride?: string;
   maxConversationTokensOverride?: number;
   maxMonthlyTokensOverride?: number;
+  /** Tenant's own provider connection (null = deployment default). */
+  providerOverride?: string | null;
+  modelOverride?: string | null;
+  endpointOverride?: string | null;
+  /** Whether a tenant API key is on file. The key itself is write-only and never returned. */
+  hasApiKey: boolean;
   defaultSystemPrompt: string;
   defaultMaxConversationTokens: number;
   defaultMaxMonthlyTokens: number;
+  defaultProvider: string;
+  defaultModel: string;
 }
 
 /** A named, per-module chatbot configuration, from GET /api/admin/agent-profiles. */
@@ -170,6 +178,8 @@ export interface AgentProfile {
    * Null/absent = every tool the caller's permissions allow. A selection only narrows RBAC.
    */
   toolNames?: string[] | null;
+  /** Per-agent model within the tenant's provider. Null = the tenant/deployment default model. */
+  model?: string | null;
 }
 
 /** A user with their roles and explicit permission grants. */
@@ -488,6 +498,12 @@ export const api = {
       systemPrompt: string | null;
       maxConversationTokens: number | null;
       maxMonthlyTokens?: number | null;
+      /** Null = deployment default provider. */
+      provider?: string | null;
+      model?: string | null;
+      endpoint?: string | null;
+      /** Write-only: undefined/null = keep the stored key, non-empty = replace, "" = clear. */
+      apiKey?: string | null;
     }) => apiSend("/api/admin/ai-settings", "PUT", settings),
     agentProfiles: (moduleId?: string) =>
       apiGet<AgentProfile[]>(
@@ -500,6 +516,7 @@ export const api = {
       mode: "Append" | "Replace";
       isDefault: boolean;
       toolNames?: string[] | null;
+      model?: string | null;
     }) => apiSend("/api/admin/agent-profiles", "PUT", profile),
     deleteAgentProfile: (id: string) => apiSend(`/api/admin/agent-profiles/${id}`, "DELETE"),
     usage: (days = 30) => apiGet<UsageReport>(`/api/admin/usage?days=${days}`),

@@ -92,7 +92,7 @@ and change without a deploy.
 
 | Section | Purpose | Notes |
 |---------|---------|-------|
-| `Ai` | Chat provider: `Provider` (Mock/OpenAI/AzureOpenAI/Ollama/None), `Model`, `Endpoint`, `ApiKey`, `Temperature`, `MaxOutputTokens`, `MaxConversationTokens`, `MaxMonthlyTokens` | `Mock` is keyless and exercises the full pipeline; budgets are tenant-overridable in the admin UI |
+| `Ai` | The DEPLOYMENT-DEFAULT chat provider: `Provider` (Mock/OpenAI/AzureOpenAI/Ollama/None), `Model`, `Endpoint`, `ApiKey`, `Temperature`, `MaxOutputTokens`, `MaxConversationTokens`, `MaxMonthlyTokens` | `Mock` is keyless and exercises the full pipeline. Tenants can override the whole connection at runtime (Admin → AI Settings): switch provider/model, bring their own key (vaulted, write-only) — and agent profiles can pin a per-agent model. See [SAAS_OPERATIONS.md](SAAS_OPERATIONS.md). |
 | `Rag` | `Enabled`, `EmbeddingProvider`, `EmbeddingModel` | Mock embedder is deterministic and keyless |
 | `Skills` | `Enabled`, `Path` | Deploy-time SKILL.md bundles shipped with the host — never tenant uploads |
 | `Mcp` | `Servers` — external MCP tool servers (name, transport, command/url, approval) | Deploy-time, like skills; each discovered tool is RBAC-gated as `tools.mcp.*` |
@@ -110,8 +110,9 @@ Everything below is stored in the database, editable at `/admin` without a deplo
 
 - **Modules** — enable/disable installed modules per tenant.
 - **Agent Profiles** — named chatbot configurations per module: instructions
-  (append/replace), which is default, and which tools the agent may use.
-- **AI Settings** — tenant system prompt, per-conversation and monthly token budgets.
+  (append/replace), which is default, which tools the agent may use, and its own model.
+- **AI Settings** — the tenant's provider connection (switch provider/model at runtime; API key
+  vaulted write-only), tenant system prompt, per-conversation and monthly token budgets.
 - **Integrations** — connector enablement + credentials (vault-protected, write-only).
 - **Roles / Users / Security** — the runtime-editable RBAC baselines and the live permission map.
 - **Notifications** — webhook delivery + signing secret.

@@ -106,6 +106,11 @@ internal sealed class TenantAiSettingsConfiguration : IEntityTypeConfiguration<T
         b.ToTable("tenant_ai_settings");
         b.HasKey(x => x.Id);
         b.Property(x => x.SystemPrompt).HasMaxLength(TenantAiSettingsValidator.MaxSystemPromptLength);
+        b.Property(x => x.Provider).HasMaxLength(32);
+        b.Property(x => x.Model).HasMaxLength(200);
+        b.Property(x => x.Endpoint).HasMaxLength(400);
+        // An opaque ISecretVault reference — inline DataProtection ciphertext can be long.
+        b.Property(x => x.ApiKeySecretRef).HasMaxLength(2000);
         b.HasIndex(x => x.TenantId).IsUnique();
     }
 }
@@ -121,6 +126,7 @@ internal sealed class AgentProfileConfiguration : IEntityTypeConfiguration<Agent
         // Same ceiling as the tenant system prompt — both feed the same instruction budget.
         b.Property(x => x.Instructions).HasMaxLength(TenantAiSettingsValidator.MaxSystemPromptLength).IsRequired();
         b.Property(x => x.Mode).HasConversion<string>().HasMaxLength(16);
+        b.Property(x => x.Model).HasMaxLength(200);
         b.HasIndex(x => new { x.TenantId, x.ModuleId, x.Name }).IsUnique();
         // One default per (tenant, module) — enforced in the DB, not just the endpoint.
         b.HasIndex(x => new { x.TenantId, x.ModuleId }).IsUnique().HasFilter("\"IsDefault\"");

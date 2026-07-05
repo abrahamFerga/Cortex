@@ -38,6 +38,7 @@ public sealed class AuthorizedAgentRunner(
     IModuleCatalog moduleCatalog,
     ITenantModuleStore tenantModuleStore,
     ITenantAiSettings tenantAiSettings,
+    ITenantChatClientResolver chatClients,
     IAgentProfileResolver agentProfiles,
     IInstructionSnapshotStore instructionSnapshots,
     IConversationStore conversations,
@@ -67,13 +68,6 @@ public sealed class AuthorizedAgentRunner(
         AgentRunRequest request,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var chatClient = services.GetService<IChatClient>();
-        if (chatClient is null || !_ai.IsEnabled)
-        {
-            yield return AgentStreamEvent.Failed("The AI provider is not configured for this deployment.");
-            yield break;
-        }
-
         if (!moduleCatalog.TryGetManifest(request.ModuleId, out var manifest) || manifest is null)
         {
             yield return AgentStreamEvent.Failed($"Unknown module '{request.ModuleId}'.");
@@ -88,13 +82,40 @@ public sealed class AuthorizedAgentRunner(
             yield break;
         }
 
-        // Resolve this tenant's effective AI settings (system prompt + token budget), defaults with overrides.
+        // Resolve this tenant's effective AI settings — system prompt, budgets, AND the provider
+        // connection (a tenant may run its own provider + vaulted key; SaaS bring-your-own-key).
         var aiSettings = await tenantAiSettings.ResolveAsync(cancellationToken);
 
         // The tenant's default agent profile for this module (if any) retasks or specializes the
-        // chatbot — different voice/policy and, when it declares a tool selection, a narrower tool
-        // surface — no code change. Resolved before tool filtering so the selection applies below.
+        // chatbot — different voice/policy, its own model, and (when it declares a tool selection)
+        // a narrower tool surface — no code change. Resolved before tool filtering.
         var profile = await agentProfiles.ResolveActiveAsync(request.ModuleId, cancellationToken);
+
+        // The turn's chat client: the tenant's connection with the profile's model override. A
+        // misconfigured connection (e.g. a key that no longer reveals) fails the turn readably.
+        IChatClient? chatClient = null;
+        string? clientError = null;
+        try
+        {
+            chatClient = await chatClients.ResolveAsync(aiSettings, profile?.Model, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Could not build the chat client for provider {Provider}.", aiSettings.Provider);
+            clientError = "The AI provider connection is misconfigured for this tenant. An administrator can fix it under AI settings.";
+        }
+
+        if (clientError is not null)
+        {
+            yield return AgentStreamEvent.Failed(clientError);
+            yield break;
+        }
+
+        if (chatClient is null)
+        {
+            yield return AgentStreamEvent.Failed("The AI provider is not configured for this deployment.");
+            yield break;
+        }
 
         // --- Pre-model-call tool filtering: the model only ever sees tools the caller may invoke. ---
         // Module + platform tools, plus tools from connectors this TENANT has enabled (default-off) —
@@ -219,7 +240,8 @@ public sealed class AuthorizedAgentRunner(
 
         var sessionState = await SerializeSessionAsync(agent, session.Session, cancellationToken);
         await conversations.AppendTurnAsync(conversation.Id, request.Message, assistant.ToString(), sessionState, instructionsHash, cancellationToken);
-        await RecordUsageAsync(request.ModuleId, conversation.Id, usage, cancellationToken);
+        await RecordUsageAsync(request.ModuleId, conversation.Id, usage,
+            aiSettings.Provider, profile?.Model is { Length: > 0 } m ? m : aiSettings.Model, cancellationToken);
 
         if (aiSettings.MaxMonthlyTokens > 0 && usage.HasAny)
         {
@@ -253,7 +275,9 @@ public sealed class AuthorizedAgentRunner(
     }
 
     /// <summary>Persists the turn's token consumption to the audit store (best-effort; never throws).</summary>
-    private async Task RecordUsageAsync(string moduleId, Guid conversationId, UsageAccumulator usage, CancellationToken cancellationToken)
+    private async Task RecordUsageAsync(
+        string moduleId, Guid conversationId, UsageAccumulator usage,
+        string provider, string model, CancellationToken cancellationToken)
     {
         if (!usage.HasAny)
         {
@@ -261,6 +285,8 @@ public sealed class AuthorizedAgentRunner(
             return;
         }
 
+        // Provider/model are the EFFECTIVE ones for the turn (tenant connection + profile model),
+        // so per-customer usage reports attribute spend to what actually ran.
         await auditLog.RecordTokenUsageAsync(new TokenUsageRecord
         {
             TenantId = currentUser.TenantId ?? Guid.Empty,
@@ -268,8 +294,8 @@ public sealed class AuthorizedAgentRunner(
             UserDisplay = currentUser.DisplayName,
             ModuleId = moduleId,
             ConversationId = conversationId,
-            Provider = _ai.Provider,
-            Model = _ai.Model,
+            Provider = provider,
+            Model = model,
             InputTokens = usage.InputTokens,
             OutputTokens = usage.OutputTokens,
             TotalTokens = usage.Effective,
