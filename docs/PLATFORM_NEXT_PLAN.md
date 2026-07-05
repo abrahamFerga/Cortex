@@ -1,0 +1,73 @@
+# Platform next wave — deployments, agent profiles, skills, secrets
+
+Directive (2026-07-04): efficient deployments (Terraform, Azure-centric, multi-cloud-friendly,
+learn from OpenClaw); configurable chatbots with different instructions; MAF agent-skills
+support; secrets that non-technical users can configure through our UI (Key Vault-grade at
+rest); plus new ideas.
+
+Loop protocol: one phase per pass — implement, build, test, commit, mark the checkbox, yield.
+
+## Research notes
+
+**OpenClaw's deployment model** is deliberately boring, and that's the lesson: one Docker
+Compose file, ONE mounted state directory holding everything the system cares about (configs,
+credentials, memory index), `docker compose pull && docker compose up -d` as the whole upgrade
+story, and pinned version tags so updates are deliberate. Production setups converge on Docker
+because it gives isolation + easy updates + portable state.
+Cortex equivalents: all state already externalized (Postgres + DataProtection keys), so the
+gaps are (a) a published container image + compose file, (b) Terraform for the Azure resources,
+(c) pinned-tag upgrade docs.
+
+**MAF agent skills** (`AgentSkillsProvider`, experimental `MEAI001`): file-based `SKILL.md`
+bundles (frontmatter name/description + instructions + `references/` + `scripts/`) loaded via
+progressive disclosure — the prompt carries only name+description; the model calls
+`load_skill` / `read_skill_resource` / `run_skill_script` on demand. `UseScriptApproval(true)`
+wraps script execution in the same approval flow Cortex already renders. Scripts are
+unsandboxed subprocesses — approval gate is mandatory, and skills directories must be
+deploy-time content, not tenant uploads, until sandboxing (Hyperlight) is evaluated.
+
+**Secrets today**: connector secrets are already write-only, DataProtection-encrypted at rest,
+editable by non-technical admins in the connector UI. The ask is a pluggable backend so the
+same UI can persist to Azure Key Vault instead of the DB (and AI provider keys can come from
+KV references instead of env vars).
+
+## Phases
+
+- [x] **Phase 0 — this plan** (research + document).
+- [x] **Phase 1 — Agent profiles (configurable chatbots)**: `AgentProfile` entity
+  (tenant + module scoped, named, `Instructions`, mode append|replace, one default per
+  module), admin CRUD under `/api/admin/agent-profiles` (permission `platform.ai.manage`),
+  runner resolves the module's default profile each turn and composes instructions
+  (pure `InstructionComposer`, unit-tested). Delivered: commit <this pass>.
+- [ ] **Phase 2 — Secret provider abstraction**: `ISecretStore` seam behind the existing
+  connector-settings service. Implementations: `DataProtectionSecretStore` (default, current
+  behavior) and `KeyVaultSecretStore` (`Secrets:Provider=AzureKeyVault`, `Secrets:KeyVaultUri`,
+  `Azure.Security.KeyVault.Secrets` + `DefaultAzureCredential`/`ManagedIdentityCredential`).
+  Same admin UI, same write-only semantics; the backend is configuration. AI provider key can
+  also resolve `Ai:ApiKey` from the store when `Ai:ApiKeySecretRef` is set.
+- [ ] **Phase 3 — MAF agent skills**: `Skills:Enabled` + `Skills:Path` config;
+  `AgentSkillsProvider` (file-based, `SubprocessScriptRunner`, `UseScriptApproval(true)`)
+  attached as an `AIContextProvider` on the module agent; skill load/run events surface through
+  the existing tool-call audit; sample skill under `samples/skills/` proving the loop with the
+  Mock provider; docs on authoring.
+- [ ] **Phase 4 — Deployment: containers + compose (the OpenClaw lesson)**: multi-stage
+  Dockerfile for `samples/Cortex.Sample.Host` (and Legal host), `deploy/compose/
+  docker-compose.yml` (api + pgvector pg17 + redis, pinned tags, named volumes, healthchecks),
+  `.env.example`, upgrade doc (`pull && up -d`).
+- [ ] **Phase 5 — Deployment: Terraform Azure**: `deploy/terraform/azure` — resource group,
+  Container Apps environment, PostgreSQL Flexible Server (pgvector), Azure Cache for Redis,
+  Key Vault, Log Analytics; variables for image tags; remote-state README; CI plan job.
+  Multi-cloud stance: compose is the cloud-neutral path (any VM/container service anywhere);
+  provider-specific Terraform trees per cloud (`deploy/terraform/aws` later) rather than a
+  leaky abstraction.
+- [ ] **Phase 6 — New ideas backlog** (grow as they land):
+  - **Per-tenant token budgets → org budgets + alerts** (usage page already tracks spend).
+  - **Eval harness**: golden-conversation tests running against the Mock provider in CI, so
+    instruction/profile changes are regression-tested like code.
+  - **Prompt provenance**: stamp each conversation turn with the hash of the effective
+    instructions (profile + manifest + system prompt) for reproducibility/audit.
+  - **Notification channel seam**: deliver job completions/calendar reminders via chat push,
+    email, or webhook — one interface, per-tenant channel config.
+  - **Cross-module handoff**: MAF handoff workflow between module agents ("ask finance" from
+    legal chat) — the cortex-peer connector already covers the cross-system case.
+  - **Admin ops tab**: job queue depth, connector sync health, RAG index freshness in one view.

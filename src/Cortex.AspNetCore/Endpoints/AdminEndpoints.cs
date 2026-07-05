@@ -29,7 +29,111 @@ public static class AdminEndpoints
         MapModules(group);
         MapTenants(group);
         MapAiSettings(group);
+        MapAgentProfiles(group);
         MapAuditAndUsage(group);
+    }
+
+    // ── Agent profiles: named, per-module chatbot configurations (platform.ai.manage) ──
+
+    private static void MapAgentProfiles(RouteGroupBuilder group)
+    {
+        group.MapGet("/agent-profiles", async (string? moduleId, PlatformDbContext db, CancellationToken ct) =>
+        {
+            var query = db.AgentProfiles.AsQueryable();
+            if (!string.IsNullOrWhiteSpace(moduleId))
+            {
+                query = query.Where(p => p.ModuleId == moduleId);
+            }
+
+            var profiles = await query
+                .OrderBy(p => p.ModuleId).ThenBy(p => p.Name)
+                .Select(p => new AgentProfileDto(p.Id, p.ModuleId, p.Name, p.Instructions, p.Mode.ToString(), p.IsDefault))
+                .ToListAsync(ct);
+            return Results.Ok(profiles);
+        })
+        .RequireAuthorization(PermissionRequirement.PolicyName(Permissions.ManageAiSettings))
+        .WithName("Admin_AgentProfiles");
+
+        // Upsert by (moduleId, name). Making a profile default atomically demotes the module's
+        // previous default — the partial unique index backstops the invariant.
+        group.MapPut("/agent-profiles", async (
+            [FromBody] AgentProfileRequest body, PlatformDbContext db, ICurrentUser current, CancellationToken ct) =>
+        {
+            if (current.TenantId is not Guid tenantId)
+            {
+                return Results.BadRequest("No tenant context.");
+            }
+
+            var moduleId = body.ModuleId?.Trim().ToLowerInvariant();
+            var name = body.Name?.Trim();
+            var instructions = body.Instructions?.Trim();
+            if (string.IsNullOrWhiteSpace(moduleId) || string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(instructions))
+            {
+                return Results.BadRequest("moduleId, name, and instructions are required.");
+            }
+
+            if (instructions.Length > TenantAiSettingsValidator.MaxSystemPromptLength)
+            {
+                return Results.BadRequest($"instructions must be {TenantAiSettingsValidator.MaxSystemPromptLength:N0} characters or fewer.");
+            }
+
+            if (!Enum.TryParse<AgentProfileMode>(body.Mode, ignoreCase: true, out var mode))
+            {
+                mode = AgentProfileMode.Append;
+            }
+
+            if (body.IsDefault)
+            {
+                var currentDefaults = await db.AgentProfiles
+                    .Where(p => p.ModuleId == moduleId && p.IsDefault && p.Name != name)
+                    .ToListAsync(ct);
+                foreach (var d in currentDefaults)
+                {
+                    d.IsDefault = false;
+                }
+            }
+
+            var profile = await db.AgentProfiles.FirstOrDefaultAsync(p => p.ModuleId == moduleId && p.Name == name, ct);
+            if (profile is null)
+            {
+                profile = new AgentProfile
+                {
+                    TenantId = tenantId,
+                    ModuleId = moduleId,
+                    Name = name,
+                    Instructions = instructions,
+                    Mode = mode,
+                    IsDefault = body.IsDefault,
+                };
+                db.AgentProfiles.Add(profile);
+            }
+            else
+            {
+                profile.Instructions = instructions;
+                profile.Mode = mode;
+                profile.IsDefault = body.IsDefault;
+            }
+
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(new AgentProfileDto(profile.Id, profile.ModuleId, profile.Name, profile.Instructions, profile.Mode.ToString(), profile.IsDefault));
+        })
+        .RequireAuthorization(PermissionRequirement.PolicyName(Permissions.ManageAiSettings))
+        .WithName("Admin_UpsertAgentProfile");
+
+        group.MapDelete("/agent-profiles/{id:guid}", async (Guid id, PlatformDbContext db, CancellationToken ct) =>
+        {
+            var profile = await db.AgentProfiles.FirstOrDefaultAsync(p => p.Id == id, ct);
+            if (profile is null)
+            {
+                return Results.NotFound();
+            }
+
+            db.AgentProfiles.Remove(profile);
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        })
+        .RequireAuthorization(PermissionRequirement.PolicyName(Permissions.ManageAiSettings))
+        .WithName("Admin_DeleteAgentProfile");
     }
 
     // ── Per-tenant AI settings (platform.ai.manage) ──────────────────────────
@@ -821,6 +925,11 @@ public static class AdminEndpoints
     private sealed record AiSettingsDto(
         string? SystemPromptOverride, int? MaxConversationTokensOverride, string DefaultSystemPrompt, int DefaultMaxConversationTokens);
     private sealed record AiSettingsRequest(string? SystemPrompt, int? MaxConversationTokens);
+
+    private sealed record AgentProfileDto(Guid Id, string ModuleId, string Name, string Instructions, string Mode, bool IsDefault);
+
+    /// <summary>Create or update a named agent profile for a module (matched by moduleId + name).</summary>
+    private sealed record AgentProfileRequest(string? ModuleId, string? Name, string? Instructions, string? Mode, bool IsDefault);
 
     private sealed record ToolCallDto(
         Guid Id, DateTimeOffset OccurredAt, string? UserDisplay, string ModuleId, string ToolName, string Permission, bool Success, string? Error, long DurationMs);

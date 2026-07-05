@@ -219,6 +219,7 @@ public static class InfrastructureSetup
         services.AddSingleton<IToolRegistry, ToolRegistry>();
         services.AddScoped<ITenantModuleStore, TenantModuleStore>();
         services.AddScoped<ITenantAiSettings, TenantAiSettingsResolver>();
+        services.AddScoped<IAgentProfileResolver, AgentProfileResolver>();
         services.AddScoped<IConversationStore, ConversationStore>();
         services.AddScoped<ITokenUsageReader, TokenUsageReader>();
         services.AddScoped<IApprovalStore, ApprovalStore>();

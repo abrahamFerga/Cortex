@@ -25,6 +25,7 @@ public sealed class PlatformDbContext(
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<TenantModule> TenantModules => Set<TenantModule>();
     public DbSet<TenantAiSettings> TenantAiSettings => Set<TenantAiSettings>();
+    public DbSet<AgentProfile> AgentProfiles => Set<AgentProfile>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ConversationMessage> ConversationMessages => Set<ConversationMessage>();
     public DbSet<PendingApproval> PendingApprovals => Set<PendingApproval>();

@@ -110,6 +110,23 @@ internal sealed class TenantAiSettingsConfiguration : IEntityTypeConfiguration<T
     }
 }
 
+internal sealed class AgentProfileConfiguration : IEntityTypeConfiguration<AgentProfile>
+{
+    public void Configure(EntityTypeBuilder<AgentProfile> b)
+    {
+        b.ToTable("agent_profiles");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.ModuleId).HasMaxLength(64).IsRequired();
+        b.Property(x => x.Name).HasMaxLength(100).IsRequired();
+        // Same ceiling as the tenant system prompt — both feed the same instruction budget.
+        b.Property(x => x.Instructions).HasMaxLength(TenantAiSettingsValidator.MaxSystemPromptLength).IsRequired();
+        b.Property(x => x.Mode).HasConversion<string>().HasMaxLength(16);
+        b.HasIndex(x => new { x.TenantId, x.ModuleId, x.Name }).IsUnique();
+        // One default per (tenant, module) — enforced in the DB, not just the endpoint.
+        b.HasIndex(x => new { x.TenantId, x.ModuleId }).IsUnique().HasFilter("\"IsDefault\"");
+    }
+}
+
 internal sealed class ConversationConfiguration : IEntityTypeConfiguration<Conversation>
 {
     public void Configure(EntityTypeBuilder<Conversation> b)

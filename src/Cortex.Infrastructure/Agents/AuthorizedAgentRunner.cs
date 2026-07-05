@@ -37,6 +37,7 @@ public sealed class AuthorizedAgentRunner(
     IModuleCatalog moduleCatalog,
     ITenantModuleStore tenantModuleStore,
     ITenantAiSettings tenantAiSettings,
+    IAgentProfileResolver agentProfiles,
     IConversationStore conversations,
     IAuditLog auditLog,
     ITokenUsageReader usageReader,
@@ -134,7 +135,10 @@ public sealed class AuthorizedAgentRunner(
             .Select(t => t.Name)
             .ToHashSet(StringComparer.Ordinal);
 
-        var instructions = BuildInstructions(manifest, aiSettings.SystemPrompt);
+        // The tenant's default agent profile for this module (if any) retasks or specializes the
+        // chatbot — same manifest tools, different voice/policy, no code change.
+        var profile = await agentProfiles.ResolveActiveAsync(request.ModuleId, cancellationToken);
+        var instructions = InstructionComposer.Compose(aiSettings.SystemPrompt, manifest.AgentInstructions, profile);
         var middleware = new ToolInvocationMiddleware(auditLog, currentUser, approvalRequired, toolsByName, request.ModuleId, conversation.Id);
 
         // Instrument the chat client (LLM calls + token usage) and the agent (runs) so the whole turn is
@@ -338,16 +342,6 @@ public sealed class AuthorizedAgentRunner(
         {
             await enumerator.DisposeAsync();
         }
-    }
-
-    private static string BuildInstructions(ModuleManifest manifest, string systemPrompt)
-    {
-        if (string.IsNullOrWhiteSpace(manifest.AgentInstructions))
-        {
-            return systemPrompt;
-        }
-
-        return $"{systemPrompt}\n\n{manifest.AgentInstructions}";
     }
 
     private static List<ChatMessage> BuildHistory(Conversation conversation, string newMessage)
