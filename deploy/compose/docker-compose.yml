@@ -1,0 +1,65 @@
+# Cortex — single-box deployment (the OpenClaw model: one compose file, pinned tags,
+# state in named volumes, `docker compose pull && docker compose up -d` as the upgrade).
+# Quickstart and upgrade/backup notes: see README.md next to this file.
+name: cortex
+
+services:
+  api:
+    image: ${CORTEX_IMAGE:-cortex-sample:local}
+    build:
+      context: ../..
+      dockerfile: samples/Cortex.Sample.Host/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      # Development enables the keyless demo path (Mock AI + X-Dev-* header auth).
+      # For a real deployment set CORTEX_ENVIRONMENT=Production in .env and configure
+      # authentication (external IdP) — the dev header scheme only exists in Development.
+      ASPNETCORE_ENVIRONMENT: ${CORTEX_ENVIRONMENT:-Development}
+      ConnectionStrings__cortex-platform: Host=postgres;Port=5432;Database=cortex_platform;Username=postgres;Password=${POSTGRES_PASSWORD:?create .env from .env.example}
+      ConnectionStrings__cortex-audit: Host=postgres;Port=5432;Database=cortex_audit;Username=postgres;Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__cortex-redis: redis:6379
+      Ai__Provider: ${AI_PROVIDER:-Mock}
+      Ai__Model: ${AI_MODEL:-gpt-4o-mini}
+      Ai__ApiKey: ${AI_API_KEY:-}
+      Rag__Enabled: "true"
+      Rag__EmbeddingProvider: ${EMBEDDING_PROVIDER:-Mock}
+      Skills__Enabled: "true"
+      Skills__Path: skills
+    ports:
+      - "${CORTEX_PORT:-8080}:8080"
+    restart: unless-stopped
+
+  postgres:
+    # Pinned major with pgvector (RAG). pg17 pairs with the data-volume layout;
+    # upgrading the major needs a dump/restore, not just a tag bump.
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?create .env from .env.example}
+      POSTGRES_DB: cortex_platform
+    volumes:
+      - cortex-pgdata:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cortex_platform"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - cortex-redisdata:/data
+    restart: unless-stopped
+
+# ALL state lives in these two volumes (plus your .env) — back them up and the
+# deployment is portable to any Docker host.
+volumes:
+  cortex-pgdata:
+  cortex-redisdata:

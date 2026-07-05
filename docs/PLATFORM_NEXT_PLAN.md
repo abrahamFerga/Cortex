@@ -64,10 +64,14 @@ KV references instead of env vars).
   the admin UI but never enforced at run time — the runner's approval set only included module
   manifest tools. Now unioned with per-ModuleTool flags; ApprovalExecutor also falls back to the
   connector catalog so approved connector tools actually re-execute.
-- [ ] **Phase 4 — Deployment: containers + compose (the OpenClaw lesson)**: multi-stage
-  Dockerfile for `samples/Cortex.Sample.Host` (and Legal host), `deploy/compose/
-  docker-compose.yml` (api + pgvector pg17 + redis, pinned tags, named volumes, healthchecks),
-  `.env.example`, upgrade doc (`pull && up -d`).
+- [x] **Phase 4 — Deployment: containers + compose (the OpenClaw lesson)**: multi-stage
+  Dockerfile for `samples/Cortex.Sample.Host` (modules + connectors + sample skill baked in,
+  non-root runtime), `deploy/compose/` — docker-compose.yml (api + pgvector pg17 + redis, all
+  pinned, named volumes as the single state boundary, healthchecks, audit-DB init script),
+  `.env.example` (one required value), README covering quickstart / `pull && up -d` upgrades /
+  pg-major caveat / backup = pg_dumpall + .env / going-real table. Keyless demo works out of
+  the box (Development + Mock); Production requires an IdP, stated loudly. Delivered.
+  Follow-up idea recorded: a bundled UI container (nginx serving the built front-ends).
 - [ ] **Phase 5 — Deployment: Terraform Azure**: `deploy/terraform/azure` — resource group,
   Container Apps environment, PostgreSQL Flexible Server (pgvector), Azure Cache for Redis,
   Key Vault, Log Analytics; variables for image tags; remote-state README; CI plan job.
