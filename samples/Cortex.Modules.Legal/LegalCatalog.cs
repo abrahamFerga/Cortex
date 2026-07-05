@@ -39,6 +39,15 @@ public static class LegalCatalog
         new("non-compete", "Non-Compete", "Restrictive covenant",
             "Restricts a party from competing for a defined period and area (enforceability varies by jurisdiction).",
             "For twelve (12) months after termination, {PartyA} shall not engage in a business that directly competes with {PartyB} within the agreed territory, to the extent permitted by applicable law."),
+        new("engagement-letter", "Engagement Letter", "Engagement",
+            "The letter that opens a representation: scope, fees, responsibilities, and termination. The intake workflow's work product.",
+            "ENGAGEMENT LETTER\n\n{PartyA} (the \"Firm\") is pleased to represent {PartyB} (the \"Client\") in the matter described below.\n\n" +
+            "1. SCOPE. The Firm's representation is limited to the matter described in this letter; services outside that scope require a separate engagement.\n" +
+            "2. FEES AND BILLING. The Client agrees to pay the Firm's fees at its standard hourly rates, plus reasonable expenses, invoiced monthly and payable within thirty (30) days.\n" +
+            "3. CLIENT RESPONSIBILITIES. The Client will provide complete and accurate information and respond promptly to the Firm's requests.\n" +
+            "4. NO GUARANTEE. The Firm will exercise professional skill and judgment; no outcome is or can be guaranteed.\n" +
+            "5. TERMINATION. Either the Firm or the Client may terminate the engagement on written notice, subject to applicable rules of professional conduct; fees for work performed remain payable.\n\n" +
+            "Please confirm your agreement by countersigning below."),
     ];
 
     /// <summary>Case-insensitive search over title, category, summary, and id.</summary>

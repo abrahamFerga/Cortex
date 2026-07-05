@@ -31,7 +31,7 @@ public sealed class LegalModule : IModule
     {
         Id = Id,
         DisplayName = "Legal",
-        Version = "1.7.0",
+        Version = "1.8.0",
         Description = "Matter-centric legal assistant. Organize case documents into matters, docket deadlines with reminders, run conflict checks at intake, track billable time, manage matter tasks, search a clause library, and draft clauses for review.",
         Icon = "scale",
         AgentInstructions =
@@ -58,6 +58,12 @@ public sealed class LegalModule : IModule
             "log_time (matter, hours, narrative description); answer 'what did I work on' with list_time. " +
             "TASKS: track to-dos with add_task (matter, title, optional assignee and target date), list_tasks, and " +
             "complete_task; use tasks for work items and add_deadline for hard dates that must remind. " +
+            "INTAKE WORKFLOW (onboarding a new client, step by step, confirming each step): " +
+            "(1) check_conflicts on the client and every known opposing party and REPORT the result — stop if not clear; " +
+            "(2) create_matter with a descriptive name and the client; " +
+            "(3) add_party for the client (role client) and each opposing party (role adverse) so future conflict checks see them; " +
+            "(4) draft_clause 'engagement letter' with the firm and the client as the parties; " +
+            "(5) generate_pdf with the letter text, then attach_document_to_matter with the returned file id. " +
             "Always make clear that " +
             "output is a starting template, not legal advice, and recommend review by a licensed attorney. Never " +
             "invent statutes, case citations, or jurisdiction-specific rules; if asked for those, say a qualified " +
@@ -69,6 +75,7 @@ public sealed class LegalModule : IModule
             "List my matters",
             "What deadlines are coming up?",
             "Run a conflict check for a prospective client",
+            "Onboard a new client: conflict check, open the matter, and prepare the engagement letter",
             "Review the attached contract against our playbook and file the memo on the matter",
             "Draft an NDA between our client and the counterparty, and file it on the matter",
             "Summarize the documents on a matter, citing each file",

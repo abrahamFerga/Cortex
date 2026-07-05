@@ -25,7 +25,7 @@ Derived from [research/legal-ai.md](../research/legal-ai.md) (Harvey + competito
 | 12. **Conflict-of-interest check**: parties on matters (add_party client/adverse/related, list_parties) + check_conflicts across ALL matters at intake - recall-biased loose matching; walled matters report as anonymous screened hits (never named) | done |
 | 13. **Time tracking**: log_time (quick capture, deliberately NOT approval-gated - append-only own-user data) / list_time (matter totals or own 14-day summary), Time tab with billable column; walls hold | done |
 | 14. **Matter tasks**: add_task (free-text assignee + optional target date; approval-gated) / list_tasks / complete_task, Tasks tab (open first, dated soonest-first); hard remind-me dates stay in docketing | done |
-| 15. Engagement-letter intake flow: new client -> conflict check -> matter + engagement letter drafted and filed | next |
+| 15. **Engagement-letter intake flow**: INTAKE WORKFLOW instructions prescribe the 5-step chain (check_conflicts -> create_matter -> add_party each side -> draft_clause 'engagement letter' -> generate_pdf + attach); engagement-letter template seeded in the clause library; suggested prompt added; chain + conflicts flywheel integration-tested | done - v2 table complete |
 
 Pending user decisions: **product name** (EnBanc vs AdLitem, below) and **repo extraction timing**
 (recommended: at first tagged release — see Repo strategy).
