@@ -200,6 +200,13 @@ public sealed class LegalToolSource : IModuleToolSource
                 Function = AIFunctionFactory.Create(matters.CompleteTask, name: "complete_task"),
                 RequiresApproval = true,
             },
+            new ModuleTool
+            {
+                ModuleId = ModuleId,
+                Name = "get_matter_overview",
+                Permission = Permissions.ForTool(ModuleId, "get_matter_overview"),
+                Function = AIFunctionFactory.Create(matters.GetMatterOverview, name: "get_matter_overview"),
+            },
         ];
     }
 }

@@ -778,6 +778,79 @@ public sealed class MatterTools(
         return $"Marked task '{task.Title}' on matter '{matter.Name}' as completed.";
     }
 
+    [Description("The one-look brief on a matter: status, parties, open deadlines (overdue flagged), open tasks, time totals, and recent documents. Use to answer 'brief me on X' or before working a matter.")]
+    public async Task<string> GetMatterOverview(
+        [Description("The matter name.")] string matterName,
+        CancellationToken cancellationToken = default)
+    {
+        var matter = await FindMatterAsync(matterName, cancellationToken);
+        if (matter is null)
+        {
+            return $"No matter named '{matterName}' exists. Use list_matters to find the right name.";
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var parties = await db.MatterParties.Where(p => p.MatterId == matter.Id)
+            .OrderBy(p => p.Role).ThenBy(p => p.Name).Take(20).ToListAsync(cancellationToken);
+        var deadlines = await db.MatterDeadlines.Where(d => d.MatterId == matter.Id && d.CompletedAt == null)
+            .OrderBy(d => d.DueAt).Take(10).ToListAsync(cancellationToken);
+        var tasks = await db.MatterTasks.Where(t => t.MatterId == matter.Id && t.CompletedAt == null)
+            .OrderBy(t => t.DueOn == null).ThenBy(t => t.DueOn).Take(10).ToListAsync(cancellationToken);
+        var time = await db.TimeEntries.Where(t => t.MatterId == matter.Id).ToListAsync(cancellationToken);
+        var documents = await db.MatterDocuments.Where(d => d.MatterId == matter.Id)
+            .OrderByDescending(d => d.CreatedAt).Take(5).ToListAsync(cancellationToken);
+        var documentCount = await db.MatterDocuments.CountAsync(d => d.MatterId == matter.Id, cancellationToken);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"MATTER BRIEF: {matter.Name}");
+        sb.AppendLine($"Status: {matter.Status}{(matter.ClientName is null ? "" : $" · Client: {matter.ClientName}")}" +
+                      $"{(matter.RestrictedUserIdsJson is null ? "" : " · RESTRICTED (ethical wall)")}");
+
+        sb.AppendLine(parties.Count == 0
+            ? "Parties: none recorded — record them with add_party (conflict checks depend on it)."
+            : "Parties: " + string.Join("; ", parties.Select(p => $"{p.Name} ({p.Role.ToString().ToUpperInvariant()})")));
+
+        if (deadlines.Count == 0)
+        {
+            sb.AppendLine("Deadlines: none open.");
+        }
+        else
+        {
+            sb.AppendLine("Open deadlines:");
+            foreach (var d in deadlines)
+            {
+                var days = (int)Math.Ceiling((d.DueAt - now).TotalDays);
+                var when = days < 0 ? $"OVERDUE by {-days} day(s)" : days == 0 ? "due TODAY" : $"in {days} day(s)";
+                sb.AppendLine($"  - {d.DueAt:yyyy-MM-dd} · {d.Title} ({when})");
+            }
+        }
+
+        if (tasks.Count == 0)
+        {
+            sb.AppendLine("Tasks: none open.");
+        }
+        else
+        {
+            sb.AppendLine("Open tasks:");
+            foreach (var t in tasks)
+            {
+                sb.AppendLine($"  - {t.Title}{(t.AssignedTo is null ? "" : $" (assigned to {t.AssignedTo})")}" +
+                              $"{(t.DueOn is null ? "" : $", target {t.DueOn:yyyy-MM-dd}")}");
+            }
+        }
+
+        sb.AppendLine(time.Count == 0
+            ? "Time: none logged."
+            : $"Time: {time.Sum(t => t.Hours):0.##}h total, {time.Where(t => t.Billable).Sum(t => t.Hours):0.##}h billable across {time.Count} entr(ies).");
+
+        sb.AppendLine(documentCount == 0
+            ? "Documents: none attached."
+            : $"Documents ({documentCount}): " + string.Join("; ", documents.Select(d => d.FileName)) +
+              (documentCount > documents.Count ? " …" : ""));
+
+        return sb.ToString();
+    }
+
     private async Task<Matter?> FindMatterAsync(string name, CancellationToken cancellationToken)
     {
         var normalized = name.Trim();

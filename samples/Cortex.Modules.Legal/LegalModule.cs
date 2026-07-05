@@ -31,7 +31,7 @@ public sealed class LegalModule : IModule
     {
         Id = Id,
         DisplayName = "Legal",
-        Version = "1.8.0",
+        Version = "1.9.0",
         Description = "Matter-centric legal assistant. Organize case documents into matters, docket deadlines with reminders, run conflict checks at intake, track billable time, manage matter tasks, search a clause library, and draft clauses for review.",
         Icon = "scale",
         AgentInstructions =
@@ -58,6 +58,8 @@ public sealed class LegalModule : IModule
             "log_time (matter, hours, narrative description); answer 'what did I work on' with list_time. " +
             "TASKS: track to-dos with add_task (matter, title, optional assignee and target date), list_tasks, and " +
             "complete_task; use tasks for work items and add_deadline for hard dates that must remind. " +
+            "BRIEFING: answer 'brief me on X' / 'where does X stand' with get_matter_overview — the one-look " +
+            "status of a matter's parties, deadlines, tasks, time, and documents; prefer it before working a matter. " +
             "INTAKE WORKFLOW (onboarding a new client, step by step, confirming each step): " +
             "(1) check_conflicts on the client and every known opposing party and REPORT the result — stop if not clear; " +
             "(2) create_matter with a descriptive name and the client; " +
@@ -74,6 +76,7 @@ public sealed class LegalModule : IModule
         [
             "List my matters",
             "What deadlines are coming up?",
+            "Brief me on a matter — parties, deadlines, tasks, time, documents",
             "Run a conflict check for a prospective client",
             "Onboard a new client: conflict check, open the matter, and prepare the engagement letter",
             "Review the attached contract against our playbook and file the memo on the matter",
@@ -212,6 +215,12 @@ public sealed class LegalModule : IModule
                 Description = "Mark a matter task as completed. Side-effecting: writes data and requires human approval.",
                 Permission = Permissions.ForTool(Id, "complete_task"),
                 RequiresApproval = true,
+            },
+            new ToolDescriptor
+            {
+                Name = "get_matter_overview",
+                Description = "One-look matter brief: status, parties, open deadlines, open tasks, time totals, recent documents.",
+                Permission = Permissions.ForTool(Id, "get_matter_overview"),
             },
             new ToolDescriptor
             {

@@ -61,7 +61,7 @@ public sealed class LegalCatalogTests
 
         Assert.Equal("legal", manifest.Id);
         Assert.Equal(
-            ["search_clauses", "draft_clause", "create_matter", "list_matters", "attach_document_to_matter", "list_matter_documents", "get_playbook", "start_bulk_review", "index_matter_documents", "add_deadline", "list_deadlines", "complete_deadline", "add_party", "list_parties", "check_conflicts", "log_time", "list_time", "add_task", "list_tasks", "complete_task", "restrict_matter_access", "open_matter_access", "connect_matter_folder", "sync_matter_folder"],
+            ["search_clauses", "draft_clause", "create_matter", "list_matters", "attach_document_to_matter", "list_matter_documents", "get_playbook", "start_bulk_review", "index_matter_documents", "add_deadline", "list_deadlines", "complete_deadline", "add_party", "list_parties", "check_conflicts", "log_time", "list_time", "add_task", "list_tasks", "complete_task", "get_matter_overview", "restrict_matter_access", "open_matter_access", "connect_matter_folder", "sync_matter_folder"],
             manifest.Tools.Select(t => t.Name));
 
         // The side-effecting matter tools are held for human approval; the read tools are not.
@@ -76,7 +76,7 @@ public sealed class LegalCatalogTests
                 or "list_parties" or "check_conflicts"
                 // log_time is a WRITE that is deliberately not approval-gated: quick capture is the
                 // whole point of chat time-keeping, and entries are append-only own-user data.
-                or "log_time" or "list_time" or "list_tasks"),
+                or "log_time" or "list_time" or "list_tasks" or "get_matter_overview"),
             t => Assert.False(t.RequiresApproval));
 
         Assert.Contains(manifest.Tabs, t => t.Id == "chat");
