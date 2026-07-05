@@ -43,6 +43,16 @@ resource "azurerm_role_assignment" "app_secrets_user" {
   principal_id         = var.app_identity_principal_id
 }
 
+# When the platform stores admin-entered connector secrets / OAuth tokens in Key Vault
+# (Secrets:Provider=AzureKeyVault), the app writes and deletes secrets at runtime and
+# needs Officer, not just User.
+resource "azurerm_role_assignment" "app_secrets_officer" {
+  count                = var.grant_app_secrets_officer ? 1 : 0
+  scope                = azurerm_key_vault.this.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = var.app_identity_principal_id
+}
+
 # The deployer (whoever runs terraform apply) needs Secrets Officer to create
 # the secrets below. In CI this is the OIDC identity; locally it's your user.
 resource "azurerm_role_assignment" "deployer_secrets_officer" {

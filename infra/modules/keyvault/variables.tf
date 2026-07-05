@@ -34,6 +34,12 @@ variable "app_identity_principal_id" {
   type        = string
 }
 
+variable "grant_app_secrets_officer" {
+  description = "Grant the app identity write/delete on vault secrets. Required when the platform's secret vault runs in Key Vault mode (Secrets:Provider=AzureKeyVault): admin-entered connector secrets and per-user OAuth tokens are then CREATED and DELETED by the app at runtime, not just read."
+  type        = bool
+  default     = false
+}
+
 variable "db_admin_password" {
   description = "Generated PostgreSQL admin password to store as a secret."
   type        = string

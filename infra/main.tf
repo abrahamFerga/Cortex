@@ -86,8 +86,10 @@ module "keyvault" {
   tags                = local.common_tags
 
   # The app identity gets "Key Vault Secrets User" so the container app can read
-  # secret references at runtime via managed identity.
+  # secret references at runtime via managed identity. In Key Vault secret-vault
+  # mode the app also writes/deletes secrets, so it gets Officer.
   app_identity_principal_id = module.identity.principal_id
+  grant_app_secrets_officer = var.enable_keyvault_secret_vault
 
   # The database admin password (generated) is stored as a Key Vault secret.
   db_admin_password = module.database.admin_password
@@ -176,8 +178,15 @@ module "container_app" {
   ciam_authority_host = var.ciam_authority_host
   api_client_id       = module.entra_external_id.api_client_id
 
-  # Plain extra env
-  extra_env = var.api_extra_env
+  # Plain extra env. Key Vault secret-vault mode rides on top: the app then stores
+  # admin-entered connector secrets / OAuth tokens as KV secrets via its identity.
+  extra_env = merge(
+    var.api_extra_env,
+    var.enable_keyvault_secret_vault ? {
+      "Secrets__Provider"    = "AzureKeyVault"
+      "Secrets__KeyVaultUri" = module.keyvault.vault_uri
+    } : {}
+  )
 
   # Which vault secret feeds Ai:ApiKey (matches the configured provider).
   ai_api_key_secret_name = var.ai_api_key_secret_name

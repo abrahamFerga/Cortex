@@ -151,6 +151,13 @@ to header-based dev auth (`X-Dev-Subject`, `X-Dev-Tenant`, `X-Dev-Roles`).
   `ConnectionStrings__cortex-*` env vars the app binds.
 - The app reads all secrets at runtime via its **managed identity** (Key Vault
   Secrets User), never via stored connection strings in config.
+- **Admin-entered secrets in Key Vault** (optional): set
+  `enable_keyvault_secret_vault = true` to run the platform's secret vault in
+  Key Vault mode — connector keys and per-user OAuth tokens that admins enter
+  in the UI are then stored as Key Vault secrets (the DB keeps `kv:` pointers).
+  This grants the app identity **Secrets Officer** (it creates/deletes secrets
+  at runtime) and sets `Secrets__Provider` / `Secrets__KeyVaultUri`. Flipping it
+  on an existing deployment is safe: previously stored secrets keep resolving.
 
 ## CI/CD
 

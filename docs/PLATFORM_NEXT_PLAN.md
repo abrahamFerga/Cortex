@@ -72,12 +72,16 @@ KV references instead of env vars).
   pg-major caveat / backup = pg_dumpall + .env / going-real table. Keyless demo works out of
   the box (Development + Mock); Production requires an IdP, stated loudly. Delivered.
   Follow-up idea recorded: a bundled UI container (nginx serving the built front-ends).
-- [ ] **Phase 5 — Deployment: Terraform Azure**: `deploy/terraform/azure` — resource group,
-  Container Apps environment, PostgreSQL Flexible Server (pgvector), Azure Cache for Redis,
-  Key Vault, Log Analytics; variables for image tags; remote-state README; CI plan job.
-  Multi-cloud stance: compose is the cloud-neutral path (any VM/container service anywhere);
-  provider-specific Terraform trees per cloud (`deploy/terraform/aws` later) rather than a
-  leaky abstraction.
+- [x] **Phase 5 — Deployment: Terraform Azure**: the `infra/` tree already covered the
+  topology (Container Apps + Flexible Postgres + Redis + Key Vault + Log Analytics +
+  Entra External ID + OIDC CI identity), so this phase closed the gaps against the new
+  platform features: **pgvector allowlisted** (`azure.extensions=VECTOR` — RAG migrations
+  would have failed in Azure without it) and Postgres bumped to **pg17** (the verified
+  pairing); new `enable_keyvault_secret_vault` toggle wires the Phase 2 vault (app identity
+  gets Secrets Officer, `Secrets__Provider`/`Secrets__KeyVaultUri` env injected). Validated
+  with `terraform fmt -check` + `init/validate` (in a hashicorp/terraform container — no
+  local CLI); provider lock file committed. Multi-cloud stance unchanged: compose is the
+  cloud-neutral path; per-cloud Terraform trees, not a leaky abstraction.
 - [ ] **Phase 6 — New ideas backlog** (grow as they land):
   - **Per-tenant token budgets → org budgets + alerts** (usage page already tracks spend).
   - **Eval harness**: golden-conversation tests running against the Mock provider in CI, so

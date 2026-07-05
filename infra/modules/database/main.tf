@@ -26,7 +26,8 @@ resource "azurerm_postgresql_flexible_server" "this" {
   resource_group_name = var.resource_group_name
   location            = var.location
 
-  version = "16"
+  # pg17 to match the verified local pairing (AppHost + compose run pgvector/pgvector:pg17).
+  version = "17"
 
   administrator_login    = var.admin_username
   administrator_password = random_password.admin.result
@@ -57,6 +58,15 @@ resource "azurerm_postgresql_flexible_server" "this" {
 }
 
 data "azurerm_client_config" "current" {}
+
+# Allowlist the pgvector extension — Azure Flexible Server refuses CREATE EXTENSION for
+# anything not listed in azure.extensions. The app's migrations run CREATE EXTENSION vector
+# when Rag:Enabled is true; without this allowlist that migration fails at startup.
+resource "azurerm_postgresql_flexible_server_configuration" "extensions" {
+  name      = "azure.extensions"
+  server_id = azurerm_postgresql_flexible_server.this.id
+  value     = "VECTOR"
+}
 
 # ---------------------------------------------------------------------------
 # Databases
