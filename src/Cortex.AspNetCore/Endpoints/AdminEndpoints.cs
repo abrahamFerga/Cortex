@@ -353,6 +353,37 @@ public static class AdminEndpoints
         .RequireAuthorization(PermissionRequirement.PolicyName(Permissions.ManageTenants))
         .WithName("Admin_Tenants");
 
+        // Create a tenant. The slug is the stable identity channels and dev-auth reference
+        // (X-Dev-Tenant, WhatsApp TenantSlug); lowercase kebab, unique. Auto-audited.
+        group.MapPost("/tenants", async (
+            [FromBody] CreateTenantRequest body, PlatformDbContext db, CancellationToken ct) =>
+        {
+            var name = body.Name?.Trim();
+            var slug = body.Slug?.Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(slug))
+            {
+                return Results.BadRequest("name and slug are required.");
+            }
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(slug, "^[a-z0-9][a-z0-9-]{0,62}$"))
+            {
+                return Results.BadRequest("slug must be lowercase letters, digits, and hyphens (max 63 chars).");
+            }
+
+            if (await db.Tenants.AnyAsync(t => t.Slug == slug, ct))
+            {
+                return Results.Conflict($"A tenant with slug '{slug}' already exists.");
+            }
+
+            var tenant = new Tenant { Name = name, Slug = slug };
+            db.Tenants.Add(tenant);
+            await db.SaveChangesAsync(ct);
+            return Results.Created($"/api/admin/tenants/{tenant.Id}",
+                new TenantAdminDto(tenant.Id, tenant.Name, tenant.Slug, tenant.IsActive, tenant.CreatedAt));
+        })
+        .RequireAuthorization(PermissionRequirement.PolicyName(Permissions.ManageTenants))
+        .WithName("Admin_CreateTenant");
+
         // Activate or deactivate a tenant — a tenant-wide kill switch (enforced in request enrichment). You
         // can't deactivate the tenant you're operating in. Auto-audited as an entity change.
         group.MapPut("/tenants/{tenantId:guid}/active", async (
@@ -1058,6 +1089,9 @@ public static class AdminEndpoints
         Guid Id, string Subject, string Email, string? DisplayName, bool IsActive, DateTimeOffset? LastSeenAt, string[] Roles, string[] Permissions);
 
     private sealed record SetActiveRequest(bool IsActive);
+
+    /// <summary>Create a tenant: display name + stable lowercase-kebab slug (unique).</summary>
+    private sealed record CreateTenantRequest(string? Name, string? Slug);
     private sealed record RoleChangeRequest(string Role);
     private sealed record PermissionChangeRequest(string Permission);
     private sealed record RolePermissionsRequest(string[]? Permissions);

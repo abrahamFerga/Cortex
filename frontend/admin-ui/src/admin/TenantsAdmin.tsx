@@ -66,6 +66,72 @@ function TenantRow({ tenant }: { tenant: AdminTenant }) {
  * deactivated tenant denies all of its users (a tenant-wide kill switch). Requires platform.tenants.manage —
  * the API returns 403 otherwise, so this surface is meaningful only to platform operators.
  */
+function CreateTenantForm() {
+  const qc = useQueryClient();
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const create = useMutation({
+    mutationFn: () => api.admin.createTenant(name.trim(), slug.trim()),
+    onSuccess: () => {
+      setName("");
+      setSlug("");
+      void qc.invalidateQueries({ queryKey: ["admin", "tenants"] });
+    },
+  });
+  const slugInvalid = slug.trim() !== "" && !/^[a-z0-9][a-z0-9-]{0,62}$/.test(slug.trim());
+
+  return (
+    <form
+      className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!slugInvalid) create.mutate();
+      }}
+    >
+      <div className="space-y-1">
+        <label htmlFor="tenant-name" className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+          Name
+        </label>
+        <input
+          id="tenant-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Acme Legal LLP"
+          className="w-56 rounded border border-slate-300 bg-white px-2 py-1 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800"
+        />
+      </div>
+      <div className="space-y-1">
+        <label htmlFor="tenant-slug" className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+          Slug
+        </label>
+        <input
+          id="tenant-slug"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value.toLowerCase())}
+          placeholder="acme-legal"
+          className="w-44 rounded border border-slate-300 bg-white px-2 py-1 font-mono text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800"
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={create.isPending || !name.trim() || !slug.trim() || slugInvalid}
+        className="focus-ring rounded bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-40"
+      >
+        {create.isPending ? "Creating…" : "Create tenant"}
+      </button>
+      <div className="basis-full text-xs">
+        {slugInvalid && <p className="text-red-600">Slug: lowercase letters, digits, and hyphens only.</p>}
+        {create.isError && <p className="text-red-600">{(create.error as Error).message}</p>}
+        {!slugInvalid && !create.isError && (
+          <p className="text-slate-400">
+            The slug is the tenant's stable identity — sign-in mapping, channels, and dev auth reference it.
+          </p>
+        )}
+      </div>
+    </form>
+  );
+}
+
 export function TenantsAdmin() {
   const tenants = useQuery({ queryKey: ["admin", "tenants"], queryFn: api.admin.tenants });
 
@@ -91,6 +157,8 @@ export function TenantsAdmin() {
           changes are recorded in the audit trail.
         </p>
       </header>
+
+      <CreateTenantForm />
 
       {rows.length === 0 ? (
         <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-400 dark:border-slate-700">

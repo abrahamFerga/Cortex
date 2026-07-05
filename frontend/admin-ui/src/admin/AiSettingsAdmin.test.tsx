@@ -7,8 +7,10 @@ import { AiSettingsAdmin } from "./AiSettingsAdmin";
 const SETTINGS = {
   systemPromptOverride: null,
   maxConversationTokensOverride: null,
+  maxMonthlyTokensOverride: null,
   defaultSystemPrompt: "You are Cortex.",
   defaultMaxConversationTokens: 0,
+  defaultMaxMonthlyTokens: 0,
 };
 
 function stubApi() {
@@ -60,7 +62,11 @@ describe("AiSettingsAdmin", () => {
         (c) => String(c[0]).includes("/api/admin/ai-settings") && (c[1] as RequestInit | undefined)?.method === "PUT",
       );
       expect(put).toBeTruthy();
-      expect(JSON.parse((put![1] as RequestInit).body as string)).toEqual({ systemPrompt: null, maxConversationTokens: 5000 });
+      expect(JSON.parse((put![1] as RequestInit).body as string)).toEqual({
+        systemPrompt: null,
+        maxConversationTokens: 5000,
+        maxMonthlyTokens: null,
+      });
     });
   });
 

@@ -12,19 +12,22 @@ export function AiSettingsAdmin() {
   const queryClient = useQueryClient();
   const [prompt, setPrompt] = useState("");
   const [maxTokens, setMaxTokens] = useState("");
+  const [monthlyTokens, setMonthlyTokens] = useState("");
 
   useEffect(() => {
     if (settings.data) {
       setPrompt(settings.data.systemPromptOverride ?? "");
       setMaxTokens(settings.data.maxConversationTokensOverride?.toString() ?? "");
+      setMonthlyTokens(settings.data.maxMonthlyTokensOverride?.toString() ?? "");
     }
   }, [settings.data]);
 
   const save = useMutation({
-    mutationFn: (next: { prompt: string; maxTokens: string }) =>
+    mutationFn: (next: { prompt: string; maxTokens: string; monthlyTokens: string }) =>
       api.admin.setAiSettings({
         systemPrompt: next.prompt.trim() || null,
         maxConversationTokens: next.maxTokens.trim() === "" ? null : Number(next.maxTokens),
+        maxMonthlyTokens: next.monthlyTokens.trim() === "" ? null : Number(next.monthlyTokens),
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "ai-settings"] }),
   });
@@ -42,6 +45,8 @@ export function AiSettingsAdmin() {
 
   const data = settings.data!;
   const tokensInvalid = maxTokens.trim() !== "" && (!/^\d+$/.test(maxTokens.trim()) || Number(maxTokens) < 0);
+  const monthlyInvalid =
+    monthlyTokens.trim() !== "" && (!/^\d+$/.test(monthlyTokens.trim()) || Number(monthlyTokens) < 0);
 
   return (
     <div className="max-w-2xl space-y-5">
@@ -57,7 +62,7 @@ export function AiSettingsAdmin() {
         className="space-y-5"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!tokensInvalid) save.mutate({ prompt, maxTokens });
+          if (!tokensInvalid && !monthlyInvalid) save.mutate({ prompt, maxTokens, monthlyTokens });
         }}
       >
         <div className="space-y-1">
@@ -93,23 +98,43 @@ export function AiSettingsAdmin() {
           {tokensInvalid && <p className="text-xs text-red-600">Enter a non-negative whole number.</p>}
         </div>
 
+        <div className="space-y-1">
+          <label htmlFor="monthly-tokens" className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+            Monthly token budget (organization-wide)
+          </label>
+          <input
+            id="monthly-tokens"
+            value={monthlyTokens}
+            onChange={(e) => setMonthlyTokens(e.target.value)}
+            inputMode="numeric"
+            placeholder={`Default: ${data.defaultMaxMonthlyTokens === 0 ? "unlimited" : data.defaultMaxMonthlyTokens}`}
+            className="w-48 rounded border border-slate-300 bg-white px-2 py-1 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800"
+          />
+          <p className="text-xs text-slate-400">
+            Total tokens the whole tenant may consume per calendar month (UTC). Chat is refused once reached;
+            admins are notified at 80% and at exhaustion. 0 = unlimited; blank = default.
+          </p>
+          {monthlyInvalid && <p className="text-xs text-red-600">Enter a non-negative whole number.</p>}
+        </div>
+
         {save.isError && <p className="text-xs text-red-600">{(save.error as Error).message}</p>}
 
         <div className="flex items-center gap-2">
           <button
             type="submit"
-            disabled={tokensInvalid || save.isPending}
+            disabled={tokensInvalid || monthlyInvalid || save.isPending}
             className="focus-ring rounded bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-40"
           >
             {save.isPending ? "Saving…" : "Save"}
           </button>
           <button
             type="button"
-            disabled={save.isPending || (prompt === "" && maxTokens === "")}
+            disabled={save.isPending || (prompt === "" && maxTokens === "" && monthlyTokens === "")}
             onClick={() => {
               setPrompt("");
               setMaxTokens("");
-              save.mutate({ prompt: "", maxTokens: "" });
+              setMonthlyTokens("");
+              save.mutate({ prompt: "", maxTokens: "", monthlyTokens: "" });
             }}
             className="focus-ring rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300"
           >

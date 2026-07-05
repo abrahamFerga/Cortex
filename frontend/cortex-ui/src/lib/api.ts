@@ -149,8 +149,22 @@ export interface AdminTenant {
 export interface AiSettings {
   systemPromptOverride?: string;
   maxConversationTokensOverride?: number;
+  maxMonthlyTokensOverride?: number;
   defaultSystemPrompt: string;
   defaultMaxConversationTokens: number;
+  defaultMaxMonthlyTokens: number;
+}
+
+/** A named, per-module chatbot configuration, from GET /api/admin/agent-profiles. */
+export interface AgentProfile {
+  id: string;
+  moduleId: string;
+  name: string;
+  instructions: string;
+  /** How the instructions combine with the module's built-in ones. */
+  mode: "Append" | "Replace";
+  /** The default profile is the one the agent runner applies each turn. */
+  isDefault: boolean;
 }
 
 /** A user with their roles and explicit permission grants. */
@@ -460,11 +474,28 @@ export const api = {
     setConnectorSettings: (connectorId: string, values: Record<string, string>) =>
       apiSend(`/api/admin/connectors/${encodeURIComponent(connectorId)}/settings`, "PUT", { values }),
     tenants: () => apiGet<AdminTenant[]>("/api/admin/tenants"),
+    createTenant: (name: string, slug: string) =>
+      apiSend("/api/admin/tenants", "POST", { name, slug }),
     setTenantActive: (tenantId: string, isActive: boolean) =>
       apiSend(`/api/admin/tenants/${tenantId}/active`, "PUT", { isActive }),
     aiSettings: () => apiGet<AiSettings>("/api/admin/ai-settings"),
-    setAiSettings: (settings: { systemPrompt: string | null; maxConversationTokens: number | null }) =>
-      apiSend("/api/admin/ai-settings", "PUT", settings),
+    setAiSettings: (settings: {
+      systemPrompt: string | null;
+      maxConversationTokens: number | null;
+      maxMonthlyTokens?: number | null;
+    }) => apiSend("/api/admin/ai-settings", "PUT", settings),
+    agentProfiles: (moduleId?: string) =>
+      apiGet<AgentProfile[]>(
+        `/api/admin/agent-profiles${moduleId ? `?moduleId=${encodeURIComponent(moduleId)}` : ""}`,
+      ),
+    upsertAgentProfile: (profile: {
+      moduleId: string;
+      name: string;
+      instructions: string;
+      mode: "Append" | "Replace";
+      isDefault: boolean;
+    }) => apiSend("/api/admin/agent-profiles", "PUT", profile),
+    deleteAgentProfile: (id: string) => apiSend(`/api/admin/agent-profiles/${id}`, "DELETE"),
     usage: (days = 30) => apiGet<UsageReport>(`/api/admin/usage?days=${days}`),
     ops: () => apiGet<OpsSnapshot>("/api/admin/ops"),
   },

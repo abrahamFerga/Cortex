@@ -107,6 +107,7 @@ export function AppShell({ moduleUi, branding }: AppShellProps = {}) {
 
   // Wait for both the manifest and deployment info so the first routed render already knows whether
   // chat exists — otherwise a no-AI deployment would briefly land on /chat before hiding it.
+  // (NoModulesNotice below explains the OTHER blank-chat cause: a host with no domain modules.)
   if (isLoading || infoLoading) {
     return (
       <div role="status" className="grid h-full place-items-center text-sm text-slate-500">
@@ -173,7 +174,9 @@ export function AppShell({ moduleUi, branding }: AppShellProps = {}) {
                         moduleId={activeModuleId}
                         suggestedPrompts={activeModule?.suggestedPrompts}
                       />
-                    ) : null
+                    ) : (
+                      <NoModulesNotice anyInstalled={(modules?.length ?? 0) > 0} />
+                    )
                   }
                 />
               )}
@@ -214,5 +217,29 @@ export function AppShell({ moduleUi, branding }: AppShellProps = {}) {
       </div>
       </ActiveModuleContext.Provider>
     </BrandingContext.Provider>
+  );
+}
+
+/**
+ * Why the chat pane would otherwise be blank: the assistant is always a MODULE's assistant, so a
+ * host with no domain modules (the bare platform host) — or with every module disabled for this
+ * tenant — has nothing to chat with. Say so, and say what to do about it.
+ */
+function NoModulesNotice({ anyInstalled }: { anyInstalled: boolean }) {
+  return (
+    <div className="grid h-full place-items-center">
+      <div className="max-w-md rounded-lg border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
+        <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
+          No modules to chat with
+        </p>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          {anyInstalled
+            ? "Modules are installed but none is enabled for this tenant. Enable one under Admin → Modules."
+            : "This deployment has no domain modules installed — the assistant is always a module's assistant. " +
+              "If you meant to try the demo, run the SAMPLE host (samples/Cortex.Sample.AppHost), which ships " +
+              "Finance, Nutrition, and Legal; a product host installs modules with AddCortexModule<T>()."}
+        </p>
+      </div>
+    </div>
   );
 }
