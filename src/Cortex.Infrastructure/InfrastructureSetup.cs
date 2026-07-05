@@ -9,6 +9,7 @@ using Cortex.Application.Files;
 using Cortex.Application.Jobs;
 using Cortex.Application.Modules;
 using Cortex.Application.Rag;
+using Cortex.Application.Secrets;
 using Cortex.Application.Usage;
 using Cortex.Core.Identity;
 using Cortex.Core.Multitenancy;
@@ -27,6 +28,7 @@ using Cortex.Infrastructure.Modules;
 using Cortex.Infrastructure.Persistence;
 using Cortex.Infrastructure.Persistence.Interceptors;
 using Cortex.Infrastructure.Rag;
+using Cortex.Infrastructure.Secrets;
 using Cortex.Infrastructure.Usage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -47,6 +49,7 @@ public static class InfrastructureSetup
 
         AddRequestContext(services);
         AddPersistence(builder);
+        AddSecretVault(builder);
         AddAuthorization(builder);
         AddAuditing(services);
         AddAgentStack(builder);
@@ -199,6 +202,27 @@ public static class InfrastructureSetup
         services.AddScoped<IAuditLog, AuditLog>();
         // Flushes any audit records the durable outbox captured during an audit-DB outage.
         services.AddHostedService<AuditOutboxProcessor>();
+    }
+
+    private static void AddSecretVault(IHostApplicationBuilder builder)
+    {
+        var services = builder.Services;
+
+        services.Configure<SecretsOptions>(builder.Configuration.GetSection(SecretsOptions.SectionName));
+        services.AddSingleton<DataProtectionSecretVault>();
+
+        // Backend selection is configuration, not code: Key Vault stores values externally and the
+        // DB keeps kv: pointers; the default keeps DataProtection ciphertext inline. References are
+        // prefix-tagged, so a deployment can switch providers without migrating existing secrets.
+        var provider = builder.Configuration[$"{SecretsOptions.SectionName}:Provider"];
+        if (string.Equals(provider, SecretsOptions.AzureKeyVaultProvider, StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<ISecretVault, KeyVaultSecretVault>();
+        }
+        else
+        {
+            services.AddSingleton<ISecretVault>(sp => sp.GetRequiredService<DataProtectionSecretVault>());
+        }
     }
 
     private static void AddAgentStack(IHostApplicationBuilder builder)

@@ -1,24 +1,26 @@
 using System.Text.Json;
 using Cortex.Application.Connectors;
+using Cortex.Application.Secrets;
 using Cortex.Connectors.Sdk;
 using Cortex.Core.Platform;
 using Cortex.Infrastructure.Persistence;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 
 namespace Cortex.Infrastructure.Connectors;
 
 /// <summary>
-/// Reads and writes a tenant's connector settings. Values for manifest-declared secret fields are
-/// data-protected before they touch the database and unprotected only here, on the server, for
-/// connector code — the admin API never echoes a secret back (it reports "a value exists").
+/// Reads and writes a tenant's connector settings. Values for manifest-declared secret fields go
+/// through the configured <see cref="ISecretVault"/> (DataProtection ciphertext by default, Azure
+/// Key Vault when <c>Secrets:Provider</c> says so) and come back to plaintext only here, on the
+/// server, for connector code — the admin API never echoes a secret back (it reports "a value
+/// exists"), which is what lets non-technical admins manage keys safely from the UI.
 /// </summary>
 public sealed class ConnectorSettingsService(
     PlatformDbContext db,
     IConnectorCatalog catalog,
-    IDataProtectionProvider dataProtection) : IConnectorSettings
+    ISecretVault vault) : IConnectorSettings
 {
-    private const string ProtectorPurpose = "Cortex.Connectors.Settings";
+    private const string SecretScope = "Cortex.Connectors.Settings";
 
     public async Task<IReadOnlyDictionary<string, string>?> GetAsync(
         string connectorId, CancellationToken cancellationToken = default)
@@ -36,28 +38,29 @@ public sealed class ConnectorSettingsService(
         }
 
         var stored = Deserialize(row.SettingsJson);
-        var protector = dataProtection.CreateProtector(ProtectorPurpose);
 
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var (key, value) in stored)
         {
             var descriptor = manifest.Settings.FirstOrDefault(s => string.Equals(s.Key, key, StringComparison.Ordinal));
-            result[key] = descriptor is { IsSecret: true } ? protector.Unprotect(value) : value;
+            result[key] = descriptor is { IsSecret: true }
+                ? await vault.RevealAsync(SecretScope, value, cancellationToken)
+                : value;
         }
 
         return result;
     }
 
     /// <summary>
-    /// Merges admin-submitted values into the stored settings: secrets are protected on the way in,
-    /// and an omitted secret keeps its existing value (the admin UI can't echo it back to resubmit).
+    /// Merges admin-submitted values into the stored settings: secrets go to the vault on the way
+    /// in, and an omitted secret keeps its existing value (the admin UI can't echo it back to
+    /// resubmit). Replaced or cleared secrets are forgotten from the vault best-effort.
     /// </summary>
     public async Task SaveAsync(
         TenantConnector row, ConnectorManifest manifest, IReadOnlyDictionary<string, string?> values,
         CancellationToken cancellationToken = default)
     {
         var stored = Deserialize(row.SettingsJson);
-        var protector = dataProtection.CreateProtector(ProtectorPurpose);
 
         foreach (var descriptor in manifest.Settings)
         {
@@ -66,13 +69,22 @@ public sealed class ConnectorSettingsService(
                 continue; // untouched field keeps its stored value
             }
 
+            var previous = descriptor.IsSecret && stored.TryGetValue(descriptor.Key, out var p) ? p : null;
+
             if (string.IsNullOrEmpty(value))
             {
                 stored.Remove(descriptor.Key);
             }
             else
             {
-                stored[descriptor.Key] = descriptor.IsSecret ? protector.Protect(value) : value;
+                stored[descriptor.Key] = descriptor.IsSecret
+                    ? await vault.StoreAsync(SecretScope, value, cancellationToken)
+                    : value;
+            }
+
+            if (previous is not null)
+            {
+                await vault.ForgetAsync(previous, cancellationToken);
             }
         }
 

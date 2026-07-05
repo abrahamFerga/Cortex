@@ -1,26 +1,27 @@
 using System.Text.Json;
 using Cortex.Application.Connectors;
+using Cortex.Application.Secrets;
 using Cortex.Core.Identity;
 using Cortex.Core.Platform;
 using Cortex.Infrastructure.Persistence;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 
 namespace Cortex.Infrastructure.Connectors;
 
 /// <summary>
-/// Per-user delegated-connector sessions: tokens live data-protected on <see cref="UserConnectorLogin"/>
-/// rows, are refreshed transparently when expired (and a refresh token exists), and are deleted
-/// wholesale when an admin disables the connector — disable revokes, re-enable forces re-auth.
+/// Per-user delegated-connector sessions: tokens live in the configured secret vault (referenced
+/// from <see cref="UserConnectorLogin"/> rows), are refreshed transparently when expired (and a
+/// refresh token exists), and are deleted wholesale when an admin disables the connector —
+/// disable revokes, re-enable forces re-auth.
 /// </summary>
 public sealed class ConnectorUserLoginService(
     PlatformDbContext db,
     ICurrentUser currentUser,
     ConnectorSettingsService settings,
     IOAuthTokenClient oauth,
-    IDataProtectionProvider dataProtection) : IConnectorUserLogins
+    ISecretVault vault) : IConnectorUserLogins
 {
-    private const string ProtectorPurpose = "Cortex.Connectors.UserTokens";
+    private const string SecretScope = "Cortex.Connectors.UserTokens";
 
     public async Task<string?> GetAccessTokenAsync(string connectorId, CancellationToken cancellationToken = default)
     {
@@ -36,8 +37,8 @@ public sealed class ConnectorUserLoginService(
             return null;
         }
 
-        var protector = dataProtection.CreateProtector(ProtectorPurpose);
-        var tokens = JsonSerializer.Deserialize<OAuthTokens>(protector.Unprotect(login.ProtectedTokensJson));
+        var tokens = JsonSerializer.Deserialize<OAuthTokens>(
+            await vault.RevealAsync(SecretScope, login.ProtectedTokensJson, cancellationToken));
         if (tokens is null)
         {
             return null;
@@ -66,7 +67,7 @@ public sealed class ConnectorUserLoginService(
             return null;
         }
 
-        await SaveAsync(login, refreshed, protector, cancellationToken);
+        await SaveAsync(login, refreshed, cancellationToken);
         return refreshed.AccessToken;
     }
 
@@ -90,7 +91,7 @@ public sealed class ConnectorUserLoginService(
             db.UserConnectorLogins.Add(login);
         }
 
-        await SaveAsync(login, tokens, dataProtection.CreateProtector(ProtectorPurpose), cancellationToken);
+        await SaveAsync(login, tokens, cancellationToken);
     }
 
     /// <summary>The OAuth client config from the connector's tenant settings (delegated connectors).</summary>
@@ -113,10 +114,16 @@ public sealed class ConnectorUserLoginService(
     }
 
     private async Task SaveAsync(
-        UserConnectorLogin login, OAuthTokens tokens, IDataProtector protector, CancellationToken cancellationToken)
+        UserConnectorLogin login, OAuthTokens tokens, CancellationToken cancellationToken)
     {
-        login.ProtectedTokensJson = protector.Protect(JsonSerializer.Serialize(tokens));
+        var previous = login.ProtectedTokensJson;
+        login.ProtectedTokensJson = await vault.StoreAsync(SecretScope, JsonSerializer.Serialize(tokens), cancellationToken);
         login.ExpiresAt = tokens.ExpiresAt;
         await db.SaveChangesAsync(cancellationToken);
+
+        if (!string.IsNullOrEmpty(previous))
+        {
+            await vault.ForgetAsync(previous, cancellationToken);
+        }
     }
 }

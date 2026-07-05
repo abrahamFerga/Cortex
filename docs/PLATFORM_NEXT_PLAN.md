@@ -39,12 +39,15 @@ KV references instead of env vars).
   module), admin CRUD under `/api/admin/agent-profiles` (permission `platform.ai.manage`),
   runner resolves the module's default profile each turn and composes instructions
   (pure `InstructionComposer`, unit-tested). Delivered: commit <this pass>.
-- [ ] **Phase 2 — Secret provider abstraction**: `ISecretStore` seam behind the existing
-  connector-settings service. Implementations: `DataProtectionSecretStore` (default, current
-  behavior) and `KeyVaultSecretStore` (`Secrets:Provider=AzureKeyVault`, `Secrets:KeyVaultUri`,
-  `Azure.Security.KeyVault.Secrets` + `DefaultAzureCredential`/`ManagedIdentityCredential`).
-  Same admin UI, same write-only semantics; the backend is configuration. AI provider key can
-  also resolve `Ai:ApiKey` from the store when `Ai:ApiKeySecretRef` is set.
+- [x] **Phase 2 — Secret provider abstraction**: `ISecretVault` seam behind connector settings
+  AND per-user OAuth tokens. `DataProtectionSecretVault` (default; accepts legacy bare
+  ciphertext) and `KeyVaultSecretVault` (`Secrets:Provider=AzureKeyVault` +
+  `Secrets:KeyVaultUri`; values live in KV, the DB keeps `kv:{name}` pointers;
+  `DefaultAzureCredential`). References are prefix-tagged, so switching providers needs no
+  migration — old secrets keep resolving, new writes land in the new backend. Replaced/cleared
+  secrets are forgotten from KV best-effort. Same write-only admin UI. Delivered.
+  Deferred to a later pass: resolving `Ai:ApiKey` through the vault (needs the vault before the
+  ChatClient singleton is built — a small startup-ordering refactor).
 - [ ] **Phase 3 — MAF agent skills**: `Skills:Enabled` + `Skills:Path` config;
   `AgentSkillsProvider` (file-based, `SubprocessScriptRunner`, `UseScriptApproval(true)`)
   attached as an `AIContextProvider` on the module agent; skill load/run events surface through
