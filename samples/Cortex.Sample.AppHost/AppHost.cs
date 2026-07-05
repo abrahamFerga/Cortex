@@ -19,12 +19,19 @@ using Aspire.Hosting.ApplicationModel;
 var builder = DistributedApplication.CreateBuilder(args);
 
 // ── Backing services (run as containers locally) ─────────────────────────────
-var postgres = builder.AddPostgres("cortex-pg")
+// STABLE dev password (overridable via Parameters:cortex-pg-password in user-secrets). Postgres
+// bakes the password into the data volume at first init and never re-reads it — with Aspire's
+// default *generated* password, losing/regenerating user-secrets left the volume unopenable
+// ("28P01 password authentication failed", API waits forever). A fixed dev default can't drift.
+// This is a local demo container on a random localhost port — not a production credential.
+var pgPassword = builder.AddParameter("cortex-pg-password", "cortex-dev-only", secret: true);
+
+var postgres = builder.AddPostgres("cortex-pg", password: pgPassword)
     // pgvector-enabled Postgres — the platform's opt-in RAG pipeline needs the vector extension
     // at migration time. pg17 pairs with Aspire's data-volume mount (/var/lib/postgresql/data is
     // exactly its PGDATA; pg18+ images use a versioned layout and refuse that mount). A volume
     // created by a DIFFERENT Postgres image won't attach — `docker volume rm <apphost>-cortex-pg-data`
-    // resets the disposable dev data (see GETTING_STARTED gotchas).
+    // resets the disposable dev data (see GETTING_STARTED troubleshooting, incl. the password-drift row).
     .WithImage("pgvector/pgvector")
     .WithImageTag("pg17")
     .WithDataVolume()
