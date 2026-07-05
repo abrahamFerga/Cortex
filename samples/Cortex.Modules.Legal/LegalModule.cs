@@ -31,7 +31,7 @@ public sealed class LegalModule : IModule
     {
         Id = Id,
         DisplayName = "Legal",
-        Version = "1.10.0",
+        Version = "1.11.0",
         Description = "Matter-centric legal assistant. Organize case documents into matters, docket deadlines with reminders, run conflict checks at intake, track billable time, manage matter tasks, search a clause library, and draft clauses for review.",
         Icon = "scale",
         AgentInstructions =
@@ -60,6 +60,8 @@ public sealed class LegalModule : IModule
             "it files the PDF on the matter for billing review. " +
             "TASKS: track to-dos with add_task (matter, title, optional assignee and target date), list_tasks, and " +
             "complete_task; use tasks for work items and add_deadline for hard dates that must remind. " +
+            "CLOSE-OUT: close a finished matter with close_matter — it refuses while deadlines or tasks are open; " +
+            "resolve them first, and only pass force after the user explicitly confirms leaving items open. " +
             "BRIEFING: answer 'brief me on X' / 'where does X stand' with get_matter_overview — the one-look " +
             "status of a matter's parties, deadlines, tasks, time, and documents; prefer it before working a matter. " +
             "INTAKE WORKFLOW (onboarding a new client, step by step, confirming each step): " +
@@ -229,6 +231,20 @@ public sealed class LegalModule : IModule
                 Name = "export_prebill",
                 Description = "Generate a pre-bill (time entries + billable totals over a period) as a PDF filed on the matter. Side-effecting: writes a document and requires human approval.",
                 Permission = Permissions.ForTool(Id, "export_prebill"),
+                RequiresApproval = true,
+            },
+            new ToolDescriptor
+            {
+                Name = "close_matter",
+                Description = "Close a matter after a completeness check (refuses while deadlines/tasks are open unless forced). Side-effecting and requires human approval.",
+                Permission = Permissions.ForTool(Id, "close_matter"),
+                RequiresApproval = true,
+            },
+            new ToolDescriptor
+            {
+                Name = "reopen_matter",
+                Description = "Reopen a closed matter. Side-effecting and requires human approval.",
+                Permission = Permissions.ForTool(Id, "reopen_matter"),
                 RequiresApproval = true,
             },
             new ToolDescriptor
@@ -546,7 +562,7 @@ public sealed class LegalModule : IModule
                         .OrderBy(d => d.CompletedAt != null) // open first
                         .ThenBy(d => d.DueAt)
                         .Take(200)
-                        .Join(db.Matters, d => d.MatterId, m => m.Id, (d, m) => new
+                        .Join(db.Matters.Where(m => m.Status == MatterStatus.Open), d => d.MatterId, m => m.Id, (d, m) => new
                         {
                             d.Id, d.Title, d.DueAt, d.Notes, d.CompletedAt,
                             MatterName = m.Name, m.RestrictedUserIdsJson,
@@ -575,7 +591,7 @@ public sealed class LegalModule : IModule
                         .ThenBy(t => t.DueOn)
                         .ThenBy(t => t.CreatedAt)
                         .Take(200)
-                        .Join(db.Matters, t => t.MatterId, m => m.Id, (t, m) => new
+                        .Join(db.Matters.Where(m => m.Status == MatterStatus.Open), t => t.MatterId, m => m.Id, (t, m) => new
                         {
                             t.Id, t.Title, t.AssignedTo, t.DueOn, t.Notes, t.CompletedAt,
                             MatterName = m.Name, m.RestrictedUserIdsJson,

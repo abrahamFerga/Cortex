@@ -66,7 +66,10 @@ public sealed class DeadlineReminderService(
         var candidates = await db.MatterDeadlines
             .IgnoreQueryFilters()
             .Where(d => d.CompletedAt == null && d.ReminderSentAt == null && d.DueAt <= horizon)
-            .Join(db.Matters.IgnoreQueryFilters(), d => d.MatterId, m => m.Id, (d, m) => new { Deadline = d, MatterName = m.Name })
+            // A CLOSED matter's dates never remind — closing (with its completeness check) is the
+            // explicit decision that this file's obligations are done.
+            .Join(db.Matters.IgnoreQueryFilters().Where(m => m.Status == MatterStatus.Open),
+                d => d.MatterId, m => m.Id, (d, m) => new { Deadline = d, MatterName = m.Name })
             .ToListAsync(cancellationToken);
 
         var sent = 0;

@@ -215,6 +215,22 @@ public sealed class LegalToolSource : IModuleToolSource
                 Function = AIFunctionFactory.Create(matters.ExportPrebill, name: "export_prebill"),
                 RequiresApproval = true,
             },
+            new ModuleTool
+            {
+                ModuleId = ModuleId,
+                Name = "close_matter",
+                Permission = Permissions.ForTool(ModuleId, "close_matter"),
+                Function = AIFunctionFactory.Create(matters.CloseMatter, name: "close_matter"),
+                RequiresApproval = true,
+            },
+            new ModuleTool
+            {
+                ModuleId = ModuleId,
+                Name = "reopen_matter",
+                Permission = Permissions.ForTool(ModuleId, "reopen_matter"),
+                Function = AIFunctionFactory.Create(matters.ReopenMatter, name: "reopen_matter"),
+                RequiresApproval = true,
+            },
         ];
     }
 }

@@ -387,7 +387,7 @@ public sealed class MatterTools(
         var deadlines = await query
             .OrderBy(d => d.DueAt)
             .Take(50)
-            .Join(db.Matters, d => d.MatterId, m => m.Id,
+            .Join(db.Matters.Where(m => m.Status == MatterStatus.Open), d => d.MatterId, m => m.Id,
                 (d, m) => new { d.Title, d.DueAt, d.Notes, MatterName = m.Name, m.RestrictedUserIdsJson })
             .ToListAsync(cancellationToken);
 
@@ -729,7 +729,7 @@ public sealed class MatterTools(
             .ThenBy(t => t.DueOn)
             .ThenBy(t => t.CreatedAt)
             .Take(100)
-            .Join(db.Matters, t => t.MatterId, m => m.Id,
+            .Join(db.Matters.Where(m => m.Status == MatterStatus.Open), t => t.MatterId, m => m.Id,
                 (t, m) => new { t.Title, t.AssignedTo, t.DueOn, t.Notes, MatterName = m.Name, m.RestrictedUserIdsJson })
             .ToListAsync(cancellationToken);
 
@@ -924,6 +924,66 @@ public sealed class MatterTools(
 
         return $"Filed pre-bill '{stored.FileName}' (file id: {stored.Id}) on matter '{matter.Name}': " +
                $"{entries.Count} entr(ies), {billable:0.##}h billable, {nonBillable:0.##}h non-billable ({period}).";
+    }
+
+    [Description("Close a matter with a completeness check: refuses while deadlines or tasks are still open (finish them, or pass force after confirming with the user). Closed matters stop reminding.")]
+    public async Task<string> CloseMatter(
+        [Description("The matter name to close.")] string matterName,
+        [Description("Close even with open deadlines/tasks (only after the user explicitly confirms).")] bool force = false,
+        CancellationToken cancellationToken = default)
+    {
+        var matter = await FindMatterAsync(matterName, cancellationToken);
+        if (matter is null)
+        {
+            return $"No matter named '{matterName}' exists. Use list_matters to find the right name.";
+        }
+
+        if (matter.Status == MatterStatus.Closed)
+        {
+            return $"Matter '{matter.Name}' is already closed.";
+        }
+
+        // The close-out check — the discipline that keeps a statute deadline from dying inside a
+        // closed file. Open work blocks the close unless the user explicitly forces it.
+        var openDeadlines = await db.MatterDeadlines
+            .CountAsync(d => d.MatterId == matter.Id && d.CompletedAt == null, cancellationToken);
+        var openTasks = await db.MatterTasks
+            .CountAsync(t => t.MatterId == matter.Id && t.CompletedAt == null, cancellationToken);
+
+        if ((openDeadlines > 0 || openTasks > 0) && !force)
+        {
+            return $"CANNOT CLOSE '{matter.Name}': {openDeadlines} open deadline(s) and {openTasks} open task(s) remain. " +
+                   "Complete them (complete_deadline / complete_task), or — only if the user explicitly confirms — close with force. " +
+                   "Use get_matter_overview to see what is open.";
+        }
+
+        matter.Status = MatterStatus.Closed;
+        await db.SaveChangesAsync(cancellationToken);
+        return $"Closed matter '{matter.Name}'." +
+               (openDeadlines > 0 || openTasks > 0
+                   ? $" WARNING (forced): {openDeadlines} open deadline(s) and {openTasks} open task(s) were left open; reminders for this matter stop."
+                   : " Nothing was left open.");
+    }
+
+    [Description("Reopen a closed matter (its deadlines and tasks become active again).")]
+    public async Task<string> ReopenMatter(
+        [Description("The matter name to reopen.")] string matterName,
+        CancellationToken cancellationToken = default)
+    {
+        var matter = await FindMatterAsync(matterName, cancellationToken);
+        if (matter is null)
+        {
+            return $"No matter named '{matterName}' exists. Use list_matters to find the right name.";
+        }
+
+        if (matter.Status == MatterStatus.Open)
+        {
+            return $"Matter '{matter.Name}' is already open.";
+        }
+
+        matter.Status = MatterStatus.Open;
+        await db.SaveChangesAsync(cancellationToken);
+        return $"Reopened matter '{matter.Name}'. Its open deadlines and tasks are active again.";
     }
 
     private async Task<Matter?> FindMatterAsync(string name, CancellationToken cancellationToken)
