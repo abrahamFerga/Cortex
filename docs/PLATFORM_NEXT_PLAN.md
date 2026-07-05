@@ -113,7 +113,10 @@ KV references instead of env vars).
     /api/admin/notification-settings under the new platform.notifications.manage permission.
     Explicit-tenant config lookup (producers have no ambient tenant). Also fixed in passing:
     tools.skills.* now appear in the permission catalog and the tenant_admin baseline.
-    Remaining follow-ups: calendar-reminder producer (module-side), UI bell/badge in @cortex/ui.
+    Remaining follow-up: calendar-reminder producer (module-side — belongs to the vertical repo).
+    The UI half landed: NotificationBell in the @cortex/ui top bar (unread badge, 30s poll,
+    mark-read / mark-all) and an Operations tab in @cortex/admin-ui over /api/admin/ops
+    (jobs / knowledge / connectors / AI+budget cards, backlog + budget warnings, 15s refresh).
   - **Cross-module handoff**: MAF handoff workflow between module agents ("ask finance" from
     legal chat) — the cortex-peer connector already covers the cross-system case.
   - [x] **Admin ops snapshot**: GET `/api/admin/ops` (platform.audit.view) — job queue depth /

@@ -44,6 +44,7 @@ export { GenericTab } from "./components/GenericTab";
 export { ModuleSwitcher } from "./components/ModuleSwitcher";
 export { ConfirmDialog } from "./components/ConfirmDialog";
 export { ThemeToggle } from "./components/ThemeToggle";
+export { NotificationBell } from "./components/NotificationBell";
 
 // Theme (dark mode): call initTheme() at startup; ThemeToggle (or useTheme) drives the preference.
 export { initTheme, useTheme, resolveTheme, getThemePreference, setThemePreference } from "./lib/theme";

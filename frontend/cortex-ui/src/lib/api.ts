@@ -166,6 +166,32 @@ export interface AdminUser {
   permissions: string[];
 }
 
+/** An in-app notification for the current user, from GET /api/notifications. */
+export interface NotificationInfo {
+  id: string;
+  /** Producer namespace, e.g. "jobs", "budget", "calendar". */
+  category: string;
+  title: string;
+  body: string;
+  link?: string;
+  createdAt: string;
+  readAt?: string;
+}
+
+/** The one-call tenant health snapshot, from GET /api/admin/ops. */
+export interface OpsSnapshot {
+  jobs: {
+    queued: number;
+    running: number;
+    failed24h: number;
+    oldestQueuedAgeSeconds?: number;
+  };
+  connectors: { connectorId: string; bindingCount: number; lastSyncedAt?: string }[];
+  rag: { collections: number; chunks: number; lastIngestAt?: string };
+  notifications: { webhookConfigured: boolean };
+  ai: { provider: string; model: string; monthTokens: number; maxMonthlyTokens: number };
+}
+
 /** A recorded agent tool invocation, from GET /api/admin/audit/tool-calls. */
 export interface ToolCall {
   id: string;
@@ -378,6 +404,14 @@ export const api = {
     downloadUrl: (id: string) => `${API_BASE}/api/files/${id}`,
   },
 
+  // The current user's in-app notification inbox (strictly self-scoped server-side).
+  notifications: {
+    list: (unreadOnly = false) =>
+      apiGet<NotificationInfo[]>(`/api/notifications/${unreadOnly ? "?unreadOnly=true" : ""}`),
+    markRead: (id: string) => apiSend(`/api/notifications/${id}/read`, "POST"),
+    markAllRead: () => apiSend("/api/notifications/read-all", "POST"),
+  },
+
   // Human-in-the-loop: side-effecting tool calls the agent was blocked from auto-running.
   approvals: {
     list: () => apiGet<PendingApproval[]>("/api/chat/approvals"),
@@ -432,5 +466,6 @@ export const api = {
     setAiSettings: (settings: { systemPrompt: string | null; maxConversationTokens: number | null }) =>
       apiSend("/api/admin/ai-settings", "PUT", settings),
     usage: (days = 30) => apiGet<UsageReport>(`/api/admin/usage?days=${days}`),
+    ops: () => apiGet<OpsSnapshot>("/api/admin/ops"),
   },
 };

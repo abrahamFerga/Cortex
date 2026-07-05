@@ -9,6 +9,7 @@ import { TenantsAdmin } from "./TenantsAdmin";
 import { AiSettingsAdmin } from "./AiSettingsAdmin";
 import { UsageDashboard } from "./UsageDashboard";
 import { AuditLog } from "./AuditLog";
+import { OpsView } from "./OpsView";
 
 // Routes are relative to the router's /admin basename, so these are bare section paths.
 const SECTIONS = [
@@ -21,6 +22,7 @@ const SECTIONS = [
   { to: "/ai", label: "AI Settings", end: false },
   { to: "/usage", label: "Token Usage", end: false },
   { to: "/audit", label: "Audit Log", end: false },
+  { to: "/ops", label: "Operations", end: false },
 ];
 
 function subNavClass({ isActive }: { isActive: boolean }): string {
@@ -72,6 +74,7 @@ export function AdminPage() {
             <Route path="ai" element={<AiSettingsAdmin />} />
             <Route path="usage" element={<UsageDashboard />} />
             <Route path="audit" element={<AuditLog />} />
+            <Route path="ops" element={<OpsView />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AdminErrorBoundary>

@@ -47,11 +47,14 @@ describe("ChatPanel over AG-UI", () => {
   }
 
   function aguiAwareFetch(events: object[]) {
-    return vi.fn((input: RequestInfo | URL, _init?: RequestInit) =>
-      Promise.resolve(
+    // The init argument is unused by the router but kept in the signature: assertions read it
+    // back from fetchMock.mock.calls (e.g. the threaded conversation id in the POST body).
+    return vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      void init;
+      return Promise.resolve(
         String(input).includes("/api/agui/finance") ? sseResponse(events) : jsonResponse({ permissions: [] }),
-      ),
-    );
+      );
+    });
   }
 
   it("streams a turn over the AG-UI protocol and threads the conversation id", async () => {
