@@ -101,8 +101,13 @@ KV references instead of env vars).
     API: GET `/api/notifications` (unread-first), mark-read, read-all. First producer: the job
     processor notifies the enqueuer on Succeeded/Failed (best-effort, never disturbs job state).
     Explicit tenant/user on the Notification record — producers run outside request scopes.
-    Follow-ups: webhook channel (per-tenant URL + HMAC via ISecretVault), calendar-reminder
-    producer (module-side), UI bell/badge in @cortex/ui. Delivered.
+    Delivered — and the webhook channel followed: per-tenant URL + write-only signing secret
+    (ISecretVault, scope Cortex.Notifications.WebhookSecret), payloads HMAC-signed
+    (X-Cortex-Signature: sha256=…, GitHub/Meta scheme), admin surface
+    /api/admin/notification-settings under the new platform.notifications.manage permission.
+    Explicit-tenant config lookup (producers have no ambient tenant). Also fixed in passing:
+    tools.skills.* now appear in the permission catalog and the tenant_admin baseline.
+    Remaining follow-ups: calendar-reminder producer (module-side), UI bell/badge in @cortex/ui.
   - **Cross-module handoff**: MAF handoff workflow between module agents ("ask finance" from
     legal chat) — the cortex-peer connector already covers the cross-system case.
   - **Admin ops tab**: job queue depth, connector sync health, RAG index freshness in one view.

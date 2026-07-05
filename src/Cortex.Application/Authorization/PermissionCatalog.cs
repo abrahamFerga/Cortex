@@ -24,6 +24,7 @@ public static class PermissionCatalog
         new(Permissions.ManageModules, PlatformCategory, "Enable or disable domain modules for a tenant."),
         new(Permissions.ManageConnectors, PlatformCategory, "Enable, disable, and configure data-source connectors for a tenant."),
         new(Permissions.ManageAiSettings, PlatformCategory, "Configure the tenant's AI assistant (system prompt, token budget)."),
+        new(Permissions.ManageNotifications, PlatformCategory, "Configure notification delivery (webhook URL and signing secret)."),
         new(Permissions.ViewAuditLog, PlatformCategory, "Read the audit log and token-usage telemetry."),
         new(Permissions.UseChat, ChatCategory, "Start conversations and message the agent."),
         new(Permissions.ViewConversations, ChatCategory, "Read existing conversation history."),
@@ -35,5 +36,8 @@ public static class PermissionCatalog
         new("tools.documents.list_documents", FilesCategory, "Agent tool: list the caller's stored files."),
         new("tools.documents.ocr_document", FilesCategory, "Agent tool: OCR a scanned document (requires a configured OCR engine)."),
         new("tools.knowledge.search_knowledge", FilesCategory, "Agent tool: search indexed knowledge collections for cited passages (requires Rag:Enabled)."),
+        new("tools.skills.load_skill", ChatCategory, "Agent tool: load an installed skill's instructions on demand (requires Skills:Enabled)."),
+        new("tools.skills.read_skill_resource", ChatCategory, "Agent tool: read a resource file bundled with an installed skill."),
+        new("tools.skills.run_skill_script", ChatCategory, "Agent tool: run a script bundled with an installed skill (side-effecting; approval-gated)."),
     ];
 }

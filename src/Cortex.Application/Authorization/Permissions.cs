@@ -14,6 +14,7 @@ public static class Permissions
     public const string ManageModules = "platform.modules.manage";
     public const string ManageConnectors = "platform.connectors.manage";
     public const string ManageAiSettings = "platform.ai.manage";
+    public const string ManageNotifications = "platform.notifications.manage";
     public const string ViewAuditLog = "platform.audit.view";
 
     // Chat / agent surface

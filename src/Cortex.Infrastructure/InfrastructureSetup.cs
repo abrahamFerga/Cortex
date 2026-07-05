@@ -267,6 +267,10 @@ public static class InfrastructureSetup
         services.AddScoped<IAgentProfileResolver, AgentProfileResolver>();
         services.AddScoped<IInstructionSnapshotStore, InstructionSnapshotStore>();
         services.AddScoped<INotifier, Notifier>();
+        services.AddScoped<INotificationWebhookConfigReader, NotificationWebhookConfigReader>();
+        services.AddScoped<INotificationChannel, WebhookNotificationChannel>();
+        services.AddHttpClient(WebhookNotificationChannel.HttpClientName,
+            client => client.Timeout = TimeSpan.FromSeconds(10));
         services.AddScoped<IConversationStore, ConversationStore>();
         services.AddScoped<ITokenUsageReader, TokenUsageReader>();
         services.AddScoped<IApprovalStore, ApprovalStore>();

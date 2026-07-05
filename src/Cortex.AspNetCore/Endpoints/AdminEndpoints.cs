@@ -29,9 +29,66 @@ public static class AdminEndpoints
         MapModules(group);
         MapTenants(group);
         MapAiSettings(group);
+        MapNotificationSettings(group);
         MapAgentProfiles(group);
         MapAuditAndUsage(group);
     }
+
+    // ── Notification delivery settings (platform.notifications.manage) ──────
+
+    private static void MapNotificationSettings(RouteGroupBuilder group)
+    {
+        // The webhook URL plus whether a signing secret is set — never the secret itself.
+        group.MapGet("/notification-settings", async (PlatformDbContext db, CancellationToken ct) =>
+        {
+            var row = await db.NotificationSettings.FirstOrDefaultAsync(ct);
+            return Results.Ok(new NotificationSettingsDto(row?.WebhookUrl, row?.WebhookSecretRef is not null));
+        })
+        .RequireAuthorization(PermissionRequirement.PolicyName(Permissions.ManageNotifications))
+        .WithName("Admin_NotificationSettings");
+
+        // Write-only secret contract: null keeps the stored secret, "" clears it, a value replaces
+        // it (old vault entry forgotten best-effort). Clearing the URL disables webhook delivery.
+        group.MapPut("/notification-settings", async (
+            [FromBody] NotificationSettingsRequest body, PlatformDbContext db,
+            Cortex.Application.Secrets.ISecretVault vault, ICurrentUser current, CancellationToken ct) =>
+        {
+            if (current.TenantId is not Guid tenantId)
+            {
+                return Results.BadRequest("No tenant context.");
+            }
+
+            var url = string.IsNullOrWhiteSpace(body.WebhookUrl) ? null : body.WebhookUrl.Trim();
+            if (url is not null && !Uri.TryCreate(url, UriKind.Absolute, out var parsed))
+            {
+                return Results.BadRequest("webhookUrl must be an absolute URL.");
+            }
+
+            var row = await db.NotificationSettings.FirstOrDefaultAsync(ct)
+                ?? db.NotificationSettings.Add(new NotificationSettings { TenantId = tenantId }).Entity;
+            row.WebhookUrl = url;
+
+            if (body.WebhookSecret is not null)
+            {
+                var previous = row.WebhookSecretRef;
+                row.WebhookSecretRef = body.WebhookSecret.Length == 0
+                    ? null
+                    : await vault.StoreAsync(WebhookSecretScope, body.WebhookSecret, ct);
+                if (previous is not null)
+                {
+                    await vault.ForgetAsync(previous, ct);
+                }
+            }
+
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        })
+        .RequireAuthorization(PermissionRequirement.PolicyName(Permissions.ManageNotifications))
+        .WithName("Admin_SetNotificationSettings");
+    }
+
+    /// <summary>Must match WebhookNotificationChannel.SecretScope (Cortex.Infrastructure).</summary>
+    private const string WebhookSecretScope = "Cortex.Notifications.WebhookSecret";
 
     // ── Agent profiles: named, per-module chatbot configurations (platform.ai.manage) ──
 
@@ -947,6 +1004,11 @@ public static class AdminEndpoints
     private sealed record AgentProfileRequest(string? ModuleId, string? Name, string? Instructions, string? Mode, bool IsDefault);
 
     private sealed record InstructionSnapshotDto(string Hash, string Instructions, DateTimeOffset FirstSeenAt);
+
+    private sealed record NotificationSettingsDto(string? WebhookUrl, bool HasWebhookSecret);
+
+    /// <summary>Update notification delivery. WebhookSecret: null = keep, "" = clear, value = replace.</summary>
+    private sealed record NotificationSettingsRequest(string? WebhookUrl, string? WebhookSecret);
 
     private sealed record ToolCallDto(
         Guid Id, DateTimeOffset OccurredAt, string? UserDisplay, string ModuleId, string ToolName, string Permission, bool Success, string? Error, long DurationMs);

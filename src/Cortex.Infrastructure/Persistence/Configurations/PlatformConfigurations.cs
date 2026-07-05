@@ -140,6 +140,18 @@ internal sealed class InstructionSnapshotConfiguration : IEntityTypeConfiguratio
     }
 }
 
+internal sealed class NotificationSettingsConfiguration : IEntityTypeConfiguration<NotificationSettings>
+{
+    public void Configure(EntityTypeBuilder<NotificationSettings> b)
+    {
+        b.ToTable("notification_settings");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.WebhookUrl).HasMaxLength(500);
+        b.Property(x => x.WebhookSecretRef).HasMaxLength(500);
+        b.HasIndex(x => x.TenantId).IsUnique();
+    }
+}
+
 internal sealed class UserNotificationConfiguration : IEntityTypeConfiguration<UserNotification>
 {
     public void Configure(EntityTypeBuilder<UserNotification> b)

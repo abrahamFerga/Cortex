@@ -23,11 +23,14 @@ public static class RolePermissions
             Permissions.ManageModules,
             Permissions.ManageConnectors,
             Permissions.ManageAiSettings,
+            Permissions.ManageNotifications,
             Permissions.ViewAuditLog,
             "chat.*",
             "files.*",
             "tools.documents.*",
             "tools.knowledge.*",
+            // Skills are deploy-time content and scripts are approval-gated; admins get the loop.
+            "tools.skills.*",
         ],
 
         // user can chat, see their conversations, attach files, and use the platform's read-only
