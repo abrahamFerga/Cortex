@@ -197,4 +197,56 @@ public sealed class MockChatClientTests
         Assert.Contains(nameof(SummarizeSpending), text, StringComparison.Ordinal);
         Assert.Contains("groceries", text, StringComparison.OrdinalIgnoreCase); // echoes the tool's result
     }
+
+    [Description("Log time on a matter.")]
+    private static string LogTime(string matterName, double hours, string description) =>
+        $"{matterName}|{hours}|{description}";
+
+    [Description("Docket a deadline.")]
+    private static string AddDeadline(string matterName, string title, string dueDate) =>
+        $"{matterName}|{title}|{dueDate}";
+
+    [Fact]
+    public async Task Arguments_QuotedSpansFillStringParamsInOrder_NumbersAndDatesExtracted()
+    {
+        // The demo's explicit-argument syntax: quoted spans → string params in order, the first
+        // number → the numeric param, the ISO date → the date-named param.
+        var client = new MockChatClient();
+        var options = new ChatOptions { Tools = [AIFunctionFactory.Create(LogTime, name: "log_time")] };
+        var call = await CallFor(client, options, "Log 0.5 hours of time on 'Vandelay acquisition' for the NDA call");
+
+        Assert.Equal("Vandelay acquisition", call.Arguments!["matterName"]?.ToString());
+        Assert.Equal(0.5, Assert.IsType<double>(call.Arguments["hours"]));
+        // Only one quoted span: the remaining required string falls back to the full message.
+        Assert.Contains("NDA call", call.Arguments["description"]?.ToString());
+
+        options = new ChatOptions { Tools = [AIFunctionFactory.Create(AddDeadline, name: "add_deadline")] };
+        call = await CallFor(client, options, "Add a deadline on 'Vandelay acquisition' titled 'Answer to complaint' due 2026-08-14");
+
+        Assert.Equal("Vandelay acquisition", call.Arguments!["matterName"]?.ToString());
+        Assert.Equal("Answer to complaint", call.Arguments["title"]?.ToString());
+        Assert.Equal("2026-08-14", call.Arguments["dueDate"]?.ToString());
+    }
+
+    [Fact]
+    public async Task Arguments_ContractionsAreNotQuotedSpans()
+    {
+        var client = new MockChatClient();
+        var options = new ChatOptions { Tools = [AIFunctionFactory.Create(AddTask, name: "add_task")] };
+        var call = await CallFor(client, options, "Add a task about the firm's playbook and the client's contract");
+
+        // No phantom span between the two apostrophes — the full message falls through as before.
+        Assert.Contains("firm's playbook", call.Arguments!["title"]?.ToString());
+    }
+
+    private static async Task<FunctionCallContent> CallFor(MockChatClient client, ChatOptions options, string message)
+    {
+        var calls = new List<FunctionCallContent>();
+        await foreach (var update in client.GetStreamingResponseAsync([new ChatMessage(ChatRole.User, message)], options))
+        {
+            calls.AddRange(update.Contents.OfType<FunctionCallContent>());
+        }
+
+        return Assert.Single(calls);
+    }
 }

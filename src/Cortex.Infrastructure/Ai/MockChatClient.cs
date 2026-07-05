@@ -278,6 +278,12 @@ public sealed class MockChatClient : IChatClient
         }
 
         var messageUsed = false;
+        // Quoted spans map to string params IN PARAMETER ORDER — the deterministic demo convention:
+        // "Log 0.5h on 'Vandelay acquisition' …" puts the quoted name into the first string param
+        // (matterName), a second quoted span into the second, and so on. Makes multi-argument tools
+        // (create_matter, add_deadline, log_time) actually usable in the keyless demo.
+        var quoted = ExtractQuotedSpans(userText);
+
         foreach (var property in properties.EnumerateObject())
         {
             // Only supply REQUIRED arguments; optional parameters keep the tool's own defaults. Filling
@@ -290,8 +296,22 @@ public sealed class MockChatClient : IChatClient
 
             var type = ReadType(property.Value);
 
-            // Give the first required string param the user's message so search/draft tools get a real term.
-            if (!messageUsed && !string.IsNullOrWhiteSpace(userText) && type == "string")
+            // Date-named string params take the first ISO date in the message ("due 2026-08-14"),
+            // never a quoted span — those are for names/titles.
+            if (type == "string"
+                && property.Name.Contains("date", StringComparison.OrdinalIgnoreCase)
+                && TryFirstIsoDate(userText, out var isoDate))
+            {
+                args[property.Name] = isoDate;
+            }
+            // Quoted spans fill string params in order.
+            else if (type == "string" && quoted.Count > 0)
+            {
+                args[property.Name] = quoted.Dequeue();
+            }
+            // Otherwise the first remaining required string gets the whole message, so search/draft
+            // tools get a real term.
+            else if (!messageUsed && !string.IsNullOrWhiteSpace(userText) && type == "string")
             {
                 args[property.Name] = userText.Trim();
                 messageUsed = true;
@@ -309,6 +329,47 @@ public sealed class MockChatClient : IChatClient
         }
 
         return args;
+    }
+
+    /// <summary>
+    /// Quoted spans ('…' or "…") in order of appearance — the demo's explicit-argument syntax.
+    /// Boundary lookarounds + a matching-quote backreference keep contractions ("the firm's") and
+    /// mixed quotes from producing phantom spans.
+    /// </summary>
+    private static Queue<string> ExtractQuotedSpans(string? text)
+    {
+        var spans = new Queue<string>();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return spans;
+        }
+
+        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(
+                     text, @"(?<=^|[\s(])(['""])(?<v>[^'""]{2,200}?)\1(?=[\s).,;:!?]|$)"))
+        {
+            spans.Enqueue(match.Groups["v"].Value.Trim());
+        }
+
+        return spans;
+    }
+
+    /// <summary>The first ISO date (yyyy-MM-dd) in the text, for date-named string params.</summary>
+    private static bool TryFirstIsoDate(string? text, out string value)
+    {
+        value = "";
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var match = System.Text.RegularExpressions.Regex.Match(text, @"\b(\d{4}-\d{2}-\d{2})\b");
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        value = match.Groups[1].Value;
+        return true;
     }
 
     /// <summary>Parses the first number in the text ("record a 250 expense" → 250) for a numeric tool arg.</summary>
