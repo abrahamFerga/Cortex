@@ -90,8 +90,11 @@ KV references instead of env vars).
     Runs through the REAL pipeline (auth, RBAC filtering, approval, audit, Mock provider)
     via the AG-UI stream; protocol health asserted on every case; add a case = drop a JSON
     file. 5 seed cases incl. the approval contract and the skills loop. Delivered.
-  - **Prompt provenance**: stamp each conversation turn with the hash of the effective
-    instructions (profile + manifest + system prompt) for reproducibility/audit.
+  - [x] **Prompt provenance**: every assistant message is stamped with the SHA-256 of the
+    effective instruction assembly it ran under (system prompt + manifest + profile + skills
+    advertisement); distinct assemblies are recorded once per tenant in `instruction_snapshots`,
+    resolvable via GET `/api/admin/instruction-snapshots/{hash}` (platform.ai.manage).
+    Best-effort by design — provenance failure never fails a chat turn. Delivered.
   - **Notification channel seam**: deliver job completions/calendar reminders via chat push,
     email, or webhook — one interface, per-tenant channel config.
   - **Cross-module handoff**: MAF handoff workflow between module agents ("ask finance" from

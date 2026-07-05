@@ -57,6 +57,7 @@ public sealed class ConversationStore(PlatformDbContext db, ICurrentUser current
         string userMessage,
         string assistantMessage,
         string? sessionState,
+        string? instructionsHash = null,
         CancellationToken cancellationToken = default)
     {
         var conversation = await db.Conversations.FirstOrDefaultAsync(c => c.Id == conversationId, cancellationToken)
@@ -78,6 +79,7 @@ public sealed class ConversationStore(PlatformDbContext db, ICurrentUser current
             ConversationId = conversationId,
             Role = MessageRole.Assistant,
             Content = assistantMessage,
+            InstructionsHash = instructionsHash,
         });
 
         await db.SaveChangesAsync(cancellationToken);

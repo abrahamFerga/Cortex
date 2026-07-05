@@ -19,11 +19,16 @@ public interface IConversationStore
     /// </summary>
     public Task<Conversation> GetOrCreateAsync(Guid conversationId, string moduleId, CancellationToken cancellationToken = default);
 
-    /// <summary>Persist a completed turn: the updated session blob, a derived title, and both messages.</summary>
+    /// <summary>
+    /// Persist a completed turn: the updated session blob, a derived title, and both messages.
+    /// <paramref name="instructionsHash"/> stamps the assistant message with the provenance of the
+    /// effective instructions the turn ran under (see <c>InstructionSnapshot</c>).
+    /// </summary>
     public Task AppendTurnAsync(
         Guid conversationId,
         string userMessage,
         string assistantMessage,
         string? sessionState,
+        string? instructionsHash = null,
         CancellationToken cancellationToken = default);
 }

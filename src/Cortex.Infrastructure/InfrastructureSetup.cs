@@ -263,6 +263,7 @@ public static class InfrastructureSetup
         services.AddScoped<ITenantModuleStore, TenantModuleStore>();
         services.AddScoped<ITenantAiSettings, TenantAiSettingsResolver>();
         services.AddScoped<IAgentProfileResolver, AgentProfileResolver>();
+        services.AddScoped<IInstructionSnapshotStore, InstructionSnapshotStore>();
         services.AddScoped<IConversationStore, ConversationStore>();
         services.AddScoped<ITokenUsageReader, TokenUsageReader>();
         services.AddScoped<IApprovalStore, ApprovalStore>();

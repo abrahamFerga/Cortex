@@ -17,4 +17,11 @@ public sealed class ConversationMessage : EntityBase, ITenantOwned
 
     public required MessageRole Role { get; set; }
     public required string Content { get; set; }
+
+    /// <summary>
+    /// For assistant messages: the hash of the effective instructions the turn ran under
+    /// (resolve via <see cref="InstructionSnapshot"/>). Null on user messages and on turns
+    /// recorded before provenance existed.
+    /// </summary>
+    public string? InstructionsHash { get; set; }
 }

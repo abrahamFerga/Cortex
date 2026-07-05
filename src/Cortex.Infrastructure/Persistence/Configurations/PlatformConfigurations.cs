@@ -127,6 +127,19 @@ internal sealed class AgentProfileConfiguration : IEntityTypeConfiguration<Agent
     }
 }
 
+internal sealed class InstructionSnapshotConfiguration : IEntityTypeConfiguration<InstructionSnapshot>
+{
+    public void Configure(EntityTypeBuilder<InstructionSnapshot> b)
+    {
+        b.ToTable("instruction_snapshots");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Hash).HasMaxLength(64).IsRequired();
+        b.Property(x => x.Instructions).HasColumnType("text").IsRequired();
+        b.HasIndex(x => new { x.TenantId, x.Hash }).IsUnique();
+        // Tenant query filter applies via the ITenantOwned convention in PlatformDbContext.
+    }
+}
+
 internal sealed class ConversationConfiguration : IEntityTypeConfiguration<Conversation>
 {
     public void Configure(EntityTypeBuilder<Conversation> b)

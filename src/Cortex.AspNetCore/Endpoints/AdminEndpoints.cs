@@ -120,6 +120,21 @@ public static class AdminEndpoints
         .RequireAuthorization(PermissionRequirement.PolicyName(Permissions.ManageAiSettings))
         .WithName("Admin_UpsertAgentProfile");
 
+        // Provenance lookup: resolve an assistant message's InstructionsHash to the exact
+        // instruction text the turn ran under (profiles, manifest, system prompt, skills — the
+        // whole assembly, byte-identical).
+        group.MapGet("/instruction-snapshots/{hash}", async (string hash, PlatformDbContext db, CancellationToken ct) =>
+        {
+            var normalized = hash.ToLowerInvariant();
+            var snapshot = await db.InstructionSnapshots
+                .FirstOrDefaultAsync(s => s.Hash == normalized, ct);
+            return snapshot is null
+                ? Results.NotFound()
+                : Results.Ok(new InstructionSnapshotDto(snapshot.Hash, snapshot.Instructions, snapshot.CreatedAt));
+        })
+        .RequireAuthorization(PermissionRequirement.PolicyName(Permissions.ManageAiSettings))
+        .WithName("Admin_GetInstructionSnapshot");
+
         group.MapDelete("/agent-profiles/{id:guid}", async (Guid id, PlatformDbContext db, CancellationToken ct) =>
         {
             var profile = await db.AgentProfiles.FirstOrDefaultAsync(p => p.Id == id, ct);
@@ -930,6 +945,8 @@ public static class AdminEndpoints
 
     /// <summary>Create or update a named agent profile for a module (matched by moduleId + name).</summary>
     private sealed record AgentProfileRequest(string? ModuleId, string? Name, string? Instructions, string? Mode, bool IsDefault);
+
+    private sealed record InstructionSnapshotDto(string Hash, string Instructions, DateTimeOffset FirstSeenAt);
 
     private sealed record ToolCallDto(
         Guid Id, DateTimeOffset OccurredAt, string? UserDisplay, string ModuleId, string ToolName, string Permission, bool Success, string? Error, long DurationMs);

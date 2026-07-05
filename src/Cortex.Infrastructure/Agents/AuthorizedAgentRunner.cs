@@ -39,6 +39,7 @@ public sealed class AuthorizedAgentRunner(
     ITenantModuleStore tenantModuleStore,
     ITenantAiSettings tenantAiSettings,
     IAgentProfileResolver agentProfiles,
+    IInstructionSnapshotStore instructionSnapshots,
     IConversationStore conversations,
     IAuditLog auditLog,
     ITokenUsageReader usageReader,
@@ -151,6 +152,11 @@ public sealed class AuthorizedAgentRunner(
         {
             instructions = SkillAdvertisement.Append(instructions, skillCatalog.List());
         }
+
+        // Provenance: pin the exact instruction assembly this turn runs under. The snapshot store
+        // is best-effort and never fails the turn; the hash lands on the assistant message below.
+        var instructionsHash = InstructionHash.Compute(instructions);
+        await instructionSnapshots.EnsureAsync(instructionsHash, instructions, cancellationToken);
         var middleware = new ToolInvocationMiddleware(auditLog, currentUser, approvalRequired, toolsByName, request.ModuleId, conversation.Id);
 
         // Instrument the chat client (LLM calls + token usage) and the agent (runs) so the whole turn is
@@ -194,7 +200,7 @@ public sealed class AuthorizedAgentRunner(
         }
 
         var sessionState = await SerializeSessionAsync(agent, session.Session, cancellationToken);
-        await conversations.AppendTurnAsync(conversation.Id, request.Message, assistant.ToString(), sessionState, cancellationToken);
+        await conversations.AppendTurnAsync(conversation.Id, request.Message, assistant.ToString(), sessionState, instructionsHash, cancellationToken);
         await RecordUsageAsync(request.ModuleId, conversation.Id, usage, cancellationToken);
 
         // Persist any blocked side-effecting tool calls as pending approvals, then surface them to the client.
