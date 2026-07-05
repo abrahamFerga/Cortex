@@ -31,7 +31,7 @@ public sealed class LegalModule : IModule
     {
         Id = Id,
         DisplayName = "Legal",
-        Version = "1.9.0",
+        Version = "1.10.0",
         Description = "Matter-centric legal assistant. Organize case documents into matters, docket deadlines with reminders, run conflict checks at intake, track billable time, manage matter tasks, search a clause library, and draft clauses for review.",
         Icon = "scale",
         AgentInstructions =
@@ -56,6 +56,8 @@ public sealed class LegalModule : IModule
             "(client / adverse / related) as they emerge — the conflict check is only as good as the recorded parties. " +
             "TIME: when the user mentions work done ('spent an hour on', 'log 0.5h'), capture it immediately with " +
             "log_time (matter, hours, narrative description); answer 'what did I work on' with list_time. " +
+            "BILLING: when asked to prepare a bill or pre-bill, use export_prebill (matter, optional date range) — " +
+            "it files the PDF on the matter for billing review. " +
             "TASKS: track to-dos with add_task (matter, title, optional assignee and target date), list_tasks, and " +
             "complete_task; use tasks for work items and add_deadline for hard dates that must remind. " +
             "BRIEFING: answer 'brief me on X' / 'where does X stand' with get_matter_overview — the one-look " +
@@ -221,6 +223,13 @@ public sealed class LegalModule : IModule
                 Name = "get_matter_overview",
                 Description = "One-look matter brief: status, parties, open deadlines, open tasks, time totals, recent documents.",
                 Permission = Permissions.ForTool(Id, "get_matter_overview"),
+            },
+            new ToolDescriptor
+            {
+                Name = "export_prebill",
+                Description = "Generate a pre-bill (time entries + billable totals over a period) as a PDF filed on the matter. Side-effecting: writes a document and requires human approval.",
+                Permission = Permissions.ForTool(Id, "export_prebill"),
+                RequiresApproval = true,
             },
             new ToolDescriptor
             {

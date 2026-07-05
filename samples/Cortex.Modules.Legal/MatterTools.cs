@@ -29,6 +29,7 @@ public sealed class MatterTools(
     ICurrentUser currentUser,
     IJobQueue jobs,
     IConnectorBindingService bindings,
+    Cortex.Application.Documents.IPdfRenderer pdfRenderer,
     IRagService? rag = null)
 {
     [Description("Bind a matter to a folder in a connected data source (e.g. the local-folder or azure-blob connector) and start syncing it: new and changed files are attached to the matter and indexed for search_knowledge. One folder per matter; rebinding replaces it. Side-effecting and requires approval.")]
@@ -849,6 +850,80 @@ public sealed class MatterTools(
               (documentCount > documents.Count ? " …" : ""));
 
         return sb.ToString();
+    }
+
+    [Description("Generate a PRE-BILL for a matter: its time entries over an optional date range with billable totals, rendered as a PDF and filed on the matter for billing review.")]
+    public async Task<string> ExportPrebill(
+        [Description("The matter name.")] string matterName,
+        [Description("Optional period start as an ISO date (inclusive); omit for all time.")] string? fromDate = null,
+        [Description("Optional period end as an ISO date (inclusive); omit for today.")] string? toDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        var matter = await FindMatterAsync(matterName, cancellationToken);
+        if (matter is null)
+        {
+            return $"No matter named '{matterName}' exists. Use list_matters to find the right name.";
+        }
+
+        var from = DateOnly.MinValue;
+        if (!string.IsNullOrWhiteSpace(fromDate) && !DateOnly.TryParse(fromDate, System.Globalization.CultureInfo.InvariantCulture, out from))
+        {
+            return $"'{fromDate}' is not a date I can parse — use an ISO date like 2026-07-01, or omit it.";
+        }
+
+        var to = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        if (!string.IsNullOrWhiteSpace(toDate) && !DateOnly.TryParse(toDate, System.Globalization.CultureInfo.InvariantCulture, out to))
+        {
+            return $"'{toDate}' is not a date I can parse — use an ISO date like 2026-07-31, or omit it for today.";
+        }
+
+        var entries = await db.TimeEntries
+            .Where(t => t.MatterId == matter.Id && t.WorkedOn >= from && t.WorkedOn <= to)
+            .OrderBy(t => t.WorkedOn).ThenBy(t => t.CreatedAt)
+            .ToListAsync(cancellationToken);
+        if (entries.Count == 0)
+        {
+            return $"No time entries on matter '{matter.Name}' in that period — nothing to pre-bill.";
+        }
+
+        var billable = entries.Where(e => e.Billable).Sum(e => e.Hours);
+        var nonBillable = entries.Where(e => !e.Billable).Sum(e => e.Hours);
+        var period = $"{(from == DateOnly.MinValue ? "inception" : from.ToString("yyyy-MM-dd"))} – {to:yyyy-MM-dd}";
+
+        var body = new StringBuilder();
+        body.AppendLine($"Matter: {matter.Name}{(matter.ClientName is null ? "" : $"   Client: {matter.ClientName}")}");
+        body.AppendLine($"Period: {period}   Generated: {DateTimeOffset.UtcNow:yyyy-MM-dd}");
+        body.AppendLine();
+        foreach (var e in entries)
+        {
+            body.AppendLine($"{e.WorkedOn:yyyy-MM-dd}  {e.Hours,5:0.##}h  {e.Description}" +
+                            $"{(e.Billable ? "" : "  [non-billable]")}{(e.UserDisplay is null ? "" : $"  — {e.UserDisplay}")}");
+        }
+
+        body.AppendLine();
+        body.AppendLine($"Billable: {billable:0.##}h   Non-billable: {nonBillable:0.##}h   Total: {billable + nonBillable:0.##}h");
+        body.AppendLine();
+        body.AppendLine("Draft pre-bill for internal billing review — not an invoice.");
+
+        // Render + store + file on the matter in one step, so the pre-bill can't end up orphaned.
+        var pdf = pdfRenderer.Render($"Pre-bill — {matter.Name}", body.ToString());
+        using var stream = new MemoryStream(pdf);
+        var stored = await files.SaveAsync(
+            $"prebill-{DateTime.UtcNow:yyyyMMdd-HHmm}.pdf", "application/pdf", stream,
+            source: "prebill", cancellationToken);
+
+        db.MatterDocuments.Add(new MatterDocument
+        {
+            TenantId = tenant.RequireTenantId(),
+            MatterId = matter.Id,
+            FileId = stored.Id,
+            FileName = stored.FileName,
+            Note = $"pre-bill {period}: {billable:0.##}h billable of {billable + nonBillable:0.##}h",
+        });
+        await db.SaveChangesAsync(cancellationToken);
+
+        return $"Filed pre-bill '{stored.FileName}' (file id: {stored.Id}) on matter '{matter.Name}': " +
+               $"{entries.Count} entr(ies), {billable:0.##}h billable, {nonBillable:0.##}h non-billable ({period}).";
     }
 
     private async Task<Matter?> FindMatterAsync(string name, CancellationToken cancellationToken)

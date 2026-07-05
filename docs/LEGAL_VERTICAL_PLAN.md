@@ -27,7 +27,7 @@ Derived from [research/legal-ai.md](../research/legal-ai.md) (Harvey + competito
 | 14. **Matter tasks**: add_task (free-text assignee + optional target date; approval-gated) / list_tasks / complete_task, Tasks tab (open first, dated soonest-first); hard remind-me dates stay in docketing | done |
 | 15. **Engagement-letter intake flow**: INTAKE WORKFLOW instructions prescribe the 5-step chain (check_conflicts -> create_matter -> add_party each side -> draft_clause 'engagement letter' -> generate_pdf + attach); engagement-letter template seeded in the clause library; suggested prompt added; chain + conflicts flywheel integration-tested | done - v2 table complete |
 | 16. **Matter brief**: get_matter_overview - the one-look status (parties, open deadlines w/ overdue flags, open tasks, time totals, documents); instructions steer 'brief me on X' to it | done |
-| 17. Billing export: pre-bill (time entries + totals) rendered as a PDF filed on the matter | next |
+| 17. **Billing export**: export_prebill (matter + optional date range) renders entries + billable/non-billable totals as a PDF and files it on the matter in one step (approval-gated; empty period leaves no orphan) | done |
 
 Pending user decisions: **product name** (EnBanc vs AdLitem, below) and **repo extraction timing**
 (recommended: at first tagged release — see Repo strategy).
