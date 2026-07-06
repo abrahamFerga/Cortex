@@ -20,6 +20,8 @@ export interface TabEditorField {
   label: string;
   multiline?: boolean;
   required?: boolean;
+  /** Render a number input and post a JSON number (for endpoints binding decimal/int). */
+  numeric?: boolean;
 }
 
 /**

@@ -8,8 +8,7 @@ namespace Cortex.Application.Ai;
 /// </summary>
 public static class AiOptionsValidator
 {
-    private static readonly string[] KnownProviders = ["None", "Mock", "OpenAI", "AzureOpenAI", "Anthropic", "Ollama"];
-    private const string ValidList = "None, Mock, OpenAI, AzureOpenAI, Anthropic, Ollama";
+    // The provider universe lives in ONE place — see AiProviders.
 
     /// <summary>Returns every problem found in <paramref name="options"/> (empty when valid).</summary>
     public static IReadOnlyList<string> Validate(AiOptions options)
@@ -20,11 +19,11 @@ public static class AiOptionsValidator
         var provider = options.Provider;
         if (string.IsNullOrWhiteSpace(provider))
         {
-            errors.Add($"Ai:Provider is required. Valid values: {ValidList}.");
+            errors.Add($"Ai:Provider is required. Valid values: {AiProviders.AllList}.");
         }
-        else if (!KnownProviders.Contains(provider, StringComparer.Ordinal))
+        else if (!AiProviders.All.Contains(provider, StringComparer.Ordinal))
         {
-            errors.Add($"Unknown Ai:Provider '{provider}'. Valid values: {ValidList} (case-sensitive).");
+            errors.Add($"Unknown Ai:Provider '{provider}'. Valid values: {AiProviders.AllList} (case-sensitive).");
         }
 
         // What each credentialed provider requires to build a working client (see ChatClientFactory).

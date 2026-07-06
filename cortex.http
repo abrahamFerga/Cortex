@@ -381,6 +381,33 @@ X-Dev-Subject: {{subject}}
 X-Dev-Tenant: {{tenant}}
 X-Dev-Roles: {{roles}}
 
+### Connectors — installed catalog + this tenant's enablement/settings state (schema included)
+GET {{baseUrl}}/api/admin/connectors
+X-Dev-Subject: {{subject}}
+X-Dev-Tenant: {{tenant}}
+X-Dev-Roles: {{roles}}
+
+### Connectors — enable for this tenant (connectors are default-off)
+POST {{baseUrl}}/api/admin/connectors/msgraph/enable
+X-Dev-Subject: {{subject}}
+X-Dev-Tenant: {{tenant}}
+X-Dev-Roles: {{roles}}
+
+### Connectors — disable (turns tools off immediately AND revokes every user's OAuth session)
+POST {{baseUrl}}/api/admin/connectors/msgraph/disable
+X-Dev-Subject: {{subject}}
+X-Dev-Tenant: {{tenant}}
+X-Dev-Roles: {{roles}}
+
+### Connectors — write settings (omit/null keeps stored value; "" clears; secrets write-only)
+PUT {{baseUrl}}/api/admin/connectors/msgraph/settings
+Content-Type: application/json
+X-Dev-Subject: {{subject}}
+X-Dev-Tenant: {{tenant}}
+X-Dev-Roles: {{roles}}
+
+{ "values": { "Authority": "https://login.microsoftonline.com/common", "ClientId": "your-app-registration-id", "ClientSecret": "replace-me" } }
+
 ### My notifications (self-scoped inbox)
 GET {{baseUrl}}/api/notifications
 X-Dev-Subject: {{subject}}

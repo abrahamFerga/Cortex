@@ -36,8 +36,8 @@ public static class TenantAiSettingsValidator
         return null;
     }
 
-    /// <summary>Providers a tenant may switch to at runtime ("None" disables chat for the tenant).</summary>
-    public static readonly IReadOnlyList<string> AllowedProviders = ["Mock", "OpenAI", "AzureOpenAI", "Anthropic", "Ollama", "None"];
+    /// <summary>Providers a tenant may switch to at runtime ("None" disables chat for the tenant) — the shared list.</summary>
+    public static readonly IReadOnlyList<string> AllowedProviders = AiProviders.All;
 
     /// <summary>
     /// Validates a tenant's provider-connection override. <paramref name="hasApiKey"/> is whether a

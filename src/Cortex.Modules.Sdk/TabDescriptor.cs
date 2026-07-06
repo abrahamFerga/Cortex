@@ -3,8 +3,12 @@ namespace Cortex.Modules.Sdk;
 /// <summary>A column in a tab's server-driven data view: which row field to show, and its header.</summary>
 public sealed record TabColumn(string Field, string Header);
 
-/// <summary>A field in a tab's generic editor form: which row/body property, its label, and its shape.</summary>
-public sealed record TabEditorField(string Field, string Label, bool Multiline = false, bool Required = true);
+/// <summary>
+/// A field in a tab's generic editor form: which row/body property, its label, and its shape.
+/// <paramref name="Numeric"/> makes the shell render a number input and post a JSON number, so
+/// endpoints binding <c>decimal</c>/<c>int</c> properties work without string-parsing shims.
+/// </summary>
+public sealed record TabEditorField(string Field, string Label, bool Multiline = false, bool Required = true, bool Numeric = false);
 
 /// <summary>
 /// Optional mutation affordances for a server-driven tab: when declared, the shell's generic table

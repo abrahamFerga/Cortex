@@ -61,7 +61,7 @@ public static class PlatformEndpoints
                 t.Editor is { } e && user.HasPermission(e.Permission)
                     ? new TabEditorDto(
                         e.UpsertEndpoint, e.DeleteEndpoint, e.KeyField,
-                        e.Fields.Select(f => new TabEditorFieldDto(f.Field, f.Label, f.Multiline, f.Required)).ToArray())
+                        e.Fields.Select(f => new TabEditorFieldDto(f.Field, f.Label, f.Multiline, f.Required, f.Numeric)).ToArray())
                     : null,
                 t.DetailEndpoint))
             .ToArray();
@@ -82,7 +82,7 @@ public static class PlatformEndpoints
 
     private sealed record TabEditorDto(string UpsertEndpoint, string? DeleteEndpoint, string? KeyField, TabEditorFieldDto[] Fields);
 
-    private sealed record TabEditorFieldDto(string Field, string Label, bool Multiline, bool Required);
+    private sealed record TabEditorFieldDto(string Field, string Label, bool Multiline, bool Required, bool Numeric);
 
     private sealed record MeDto(Guid? UserId, string? DisplayName, Guid? TenantId, string[] Permissions);
 

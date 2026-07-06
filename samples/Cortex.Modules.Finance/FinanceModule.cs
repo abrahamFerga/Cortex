@@ -91,6 +91,20 @@ public sealed class FinanceModule : IModule
                 Permission = ViewBudgets,
                 DataEndpoint = "/api/finance/budgets",
                 Columns = [new("category", "Category"), new("monthlyLimit", "Monthly limit"), new("currency", "Ccy")],
+                // Budgets are simple per-category limits - a natural fit for the generic table
+                // editor (POST /budgets upserts by category). Numeric field posts a JSON number.
+                Editor = new TabEditor
+                {
+                    UpsertEndpoint = "/api/finance/budgets",
+                    Permission = EditBudgets,
+                    KeyField = "category",
+                    Fields =
+                    [
+                        new("category", "Category"),
+                        new("monthlyLimit", "Monthly limit", Numeric: true),
+                        new("currency", "Currency (blank keeps current)", Required: false),
+                    ],
+                },
             },
         ],
     };

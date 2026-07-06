@@ -71,6 +71,23 @@ public sealed class ApiIntegrationTests(IntegrationFixture fixture)
         }
     }
 
+    [Fact]
+    public async Task TabEditor_BudgetsDeclaresNumericLimitField()
+    {
+        var modules = await fixture.ClientFor("system_admin").GetFromJsonAsync<JsonElement>("/api/platform/modules");
+        var budgets = modules.EnumerateArray().First(m => m.GetProperty("id").GetString() == "finance")
+            .GetProperty("tabs").EnumerateArray().First(t => t.GetProperty("id").GetString() == "budgets");
+
+        var editor = budgets.GetProperty("editor");
+        Assert.Equal("/api/finance/budgets", editor.GetProperty("upsertEndpoint").GetString());
+        Assert.Equal("category", editor.GetProperty("keyField").GetString());
+
+        // monthlyLimit binds to a decimal server-side — the shell must know to post a JSON number.
+        var limit = editor.GetProperty("fields").EnumerateArray()
+            .First(f => f.GetProperty("field").GetString() == "monthlyLimit");
+        Assert.True(limit.GetProperty("numeric").GetBoolean());
+    }
+
     [Theory]
     [InlineData("finance", "/api/finance/transactions")]
     [InlineData("nutrition", "/api/nutrition/foods")]

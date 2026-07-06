@@ -110,14 +110,29 @@ function EditorForm({
   );
 
   const save = useMutation({
-    mutationFn: () => apiSend(editor.upsertEndpoint, "POST", values),
+    // Numeric fields post as JSON numbers so endpoints binding decimal/int work as-is.
+    mutationFn: () =>
+      apiSend(
+        editor.upsertEndpoint,
+        "POST",
+        Object.fromEntries(
+          editor.fields.map((f) => [
+            f.field,
+            f.numeric ? Number(values[f.field]) : values[f.field],
+          ]),
+        ),
+      ),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["tab-data"] });
       onDone();
     },
   });
 
-  const missing = editor.fields.some((f) => (f.required ?? true) && values[f.field].trim() === "");
+  const missing = editor.fields.some(
+    (f) =>
+      ((f.required ?? true) && values[f.field].trim() === "") ||
+      (f.numeric && values[f.field].trim() !== "" && Number.isNaN(Number(values[f.field]))),
+  );
 
   return (
     <form
@@ -143,6 +158,9 @@ function EditorForm({
           ) : (
             <input
               id={`editor-${f.field}`}
+              type={f.numeric ? "number" : "text"}
+              inputMode={f.numeric ? "decimal" : undefined}
+              step={f.numeric ? "any" : undefined}
               value={values[f.field]}
               disabled={initial !== null && editor.keyField === f.field}
               onChange={(e) => setValues((v) => ({ ...v, [f.field]: e.target.value }))}

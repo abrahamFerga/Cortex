@@ -27,7 +27,7 @@ public static class ChatClientFactory
             "Ollama" => CreateOllama(options),
             "Mock" => new MockChatClient(),
             _ => throw new InvalidOperationException(
-                $"AI provider '{options.Provider}' is not supported. Valid values: OpenAI, AzureOpenAI, Anthropic, Ollama, Mock — or None to disable chat."),
+                $"AI provider '{options.Provider}' is not supported. Valid values: {AiProviders.AllList}."),
         };
     }
 

@@ -111,6 +111,55 @@ describe("GenericTab (server-driven table)", () => {
     });
   });
 
+  it("numeric editor fields post JSON numbers, not strings", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      void init;
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve([]),
+      } as unknown as Response);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <GenericTab
+          tab={{
+            id: "budgets",
+            label: "Budgets",
+            route: "/finance/budgets",
+            dataEndpoint: "/api/finance/budgets",
+            columns: [{ field: "category", header: "Category" }],
+            editor: {
+              upsertEndpoint: "/api/finance/budgets",
+              keyField: "category",
+              fields: [
+                { field: "category", label: "Category" },
+                { field: "monthlyLimit", label: "Monthly limit", numeric: true },
+              ],
+            },
+          }}
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Add" }));
+    fireEvent.change(screen.getByLabelText("Category"), { target: { value: "Dining" } });
+    fireEvent.change(screen.getByLabelText("Monthly limit"), { target: { value: "2500.5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      const post = fetchMock.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === "POST");
+      expect(post).toBeTruthy();
+      // The decimal-bound endpoint gets a real number — not "2500.5".
+      expect(JSON.parse((post![1] as RequestInit).body as string)).toEqual({
+        category: "Dining",
+        monthlyLimit: 2500.5,
+      });
+    });
+  });
+
   it("with a detailEndpoint: View fetches the resolved URL and renders the detail document; Back returns", async () => {
     const detail = {
       title: "Vandelay acquisition",
