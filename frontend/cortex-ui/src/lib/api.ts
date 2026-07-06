@@ -251,6 +251,16 @@ export interface NotificationInfo {
   readAt?: string;
 }
 
+/** A delegated connector the current user can link, from GET /api/connectors. */
+export interface UserConnector {
+  id: string;
+  displayName: string;
+  description: string;
+  icon?: string | null;
+  /** Whether THIS user has linked their account. */
+  connected: boolean;
+}
+
 /** Webhook delivery config, from GET /api/admin/notification-settings — the secret is write-only. */
 export interface NotificationSettings {
   webhookUrl: string | null;
@@ -499,10 +509,16 @@ export const api = {
   },
 
   connectors: {
+    // The tenant-enabled DELEGATED connectors with whether the current user has linked their
+    // account — the data behind the Connected accounts page.
+    list: () => apiGet<UserConnector[]>("/api/connectors"),
     // Any authenticated user starts THEIR OWN account link for a delegated connector (stage 2 of
     // enablement); the returned authorizeUrl opens the IdP's consent page in a new tab.
     oauthStart: (connectorId: string) =>
       apiGet<{ authorizeUrl: string }>(`/api/connectors/${encodeURIComponent(connectorId)}/oauth/start`),
+    // Unlink the current user's own account (removes our stored tokens).
+    disconnect: (connectorId: string) =>
+      apiSend(`/api/connectors/${encodeURIComponent(connectorId)}/login`, "DELETE"),
   },
 
   admin: {

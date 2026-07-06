@@ -91,9 +91,20 @@ export function TopBar({ onToggleSidebar, sidebarOpen = false }: TopBarProps = {
       <div className="ml-auto flex items-center gap-2">
         <NotificationBell />
         <ThemeToggle />
-        <div className="hidden text-sm text-slate-600 sm:block dark:text-slate-300">
+        {/* The user's name doubles as the door to their own settings (connected accounts). */}
+        <NavLink
+          to="/account/connections"
+          title="Connected accounts"
+          className={({ isActive }) =>
+            `focus-ring hidden rounded-md px-2 py-1 text-sm sm:block ${
+              isActive
+                ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
+                : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
+            }`
+          }
+        >
           {me?.displayName ?? "…"}
-        </div>
+        </NavLink>
       </div>
     </header>
   );

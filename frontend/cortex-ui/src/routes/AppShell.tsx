@@ -3,6 +3,7 @@ import { matchPath, Navigate, Route, Routes, useLocation, useNavigate } from "re
 import { TopBar } from "../components/TopBar";
 import { Sidebar } from "../components/Sidebar";
 import { ChatView } from "../components/ChatView";
+import { ConnectedAccounts } from "../components/ConnectedAccounts";
 import { ModuleTabView } from "../components/ModuleTabView";
 import { DemoModeBanner } from "../components/DemoModeBanner";
 import { ApiUnreachable } from "../components/ApiUnreachable";
@@ -180,6 +181,8 @@ export function AppShell({ moduleUi, branding }: AppShellProps = {}) {
                   }
                 />
               )}
+              {/* Module-agnostic, like /chat: the caller's own delegated-connector logins. */}
+              <Route path="/account/connections" element={<ConnectedAccounts />} />
               {/* Dynamic routes generated from the active module's tabs. Each renders a
                   host-registered component when one exists, else the generic server-driven view. */}
               {tabs

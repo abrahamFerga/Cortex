@@ -3,8 +3,11 @@ using System.Text;
 using System.Text.Json;
 using Cortex.Application.Connectors;
 using Cortex.Connectors.Sdk;
+using Cortex.Core.Identity;
 using Cortex.Infrastructure.Connectors;
+using Cortex.Infrastructure.Persistence;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.EntityFrameworkCore;
 
 namespace Cortex.AspNetCore.Endpoints;
 
@@ -13,6 +16,8 @@ namespace Cortex.AspNetCore.Endpoints;
 /// builds the IdP authorize URL (auth-code + PKCE; the verifier travels data-protected inside
 /// `state`, never to the browser in the clear); `callback` exchanges the code and stores the
 /// user's tokens protected. The connector must be tenant-enabled first — stage 1 gates stage 2.
+/// The list/disconnect pair is the end-user "connected accounts" surface: any authenticated user
+/// sees which delegated connectors they can link and manages ONLY their own login.
 /// </summary>
 public static class ConnectorOAuthEndpoints
 {
@@ -21,6 +26,59 @@ public static class ConnectorOAuthEndpoints
     public static void MapConnectorOAuthEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/connectors").WithTags("Connectors").RequireAuthorization();
+
+        // The tenant-enabled DELEGATED connectors with whether the CALLER has linked their account.
+        // Service-mode connectors never appear: there is nothing for an individual user to connect.
+        group.MapGet("/", async (
+                IConnectorCatalog catalog, PlatformDbContext db, ICurrentUser current,
+                CancellationToken cancellationToken) =>
+            {
+                if (current.UserId is not Guid userId)
+                {
+                    return Results.Unauthorized();
+                }
+
+                var enabled = await db.TenantConnectors
+                    .Where(c => c.Enabled)
+                    .Select(c => c.ConnectorId)
+                    .ToListAsync(cancellationToken);
+                var mine = await db.UserConnectorLogins
+                    .Where(l => l.UserId == userId)
+                    .Select(l => l.ConnectorId)
+                    .ToListAsync(cancellationToken);
+
+                var result = catalog.Manifests
+                    .Where(m => m.AuthMode == ConnectorAuthMode.UserDelegated && enabled.Contains(m.Id))
+                    .OrderBy(m => m.DisplayName, StringComparer.OrdinalIgnoreCase)
+                    .Select(m => new UserConnectorDto(
+                        m.Id, m.DisplayName, m.Description, m.Icon, Connected: mine.Contains(m.Id)));
+                return Results.Ok(result);
+            })
+            .WithName("Connectors_ListForUser");
+
+        // Unlink the CALLER's account. The stored tokens are the row — deleting it revokes our
+        // copy; the IdP-side grant is the user's to manage in their provider account.
+        group.MapDelete("/{connectorId}/login", async (
+                string connectorId, PlatformDbContext db, ICurrentUser current,
+                CancellationToken cancellationToken) =>
+            {
+                if (current.UserId is not Guid userId)
+                {
+                    return Results.Unauthorized();
+                }
+
+                var row = await db.UserConnectorLogins
+                    .FirstOrDefaultAsync(l => l.ConnectorId == connectorId && l.UserId == userId, cancellationToken);
+                if (row is null)
+                {
+                    return Results.NotFound();
+                }
+
+                db.UserConnectorLogins.Remove(row);
+                await db.SaveChangesAsync(cancellationToken);
+                return Results.NoContent();
+            })
+            .WithName("Connectors_DisconnectLogin");
 
         group.MapGet("/{connectorId}/oauth/start", async (
                 string connectorId, HttpContext http,
@@ -105,4 +163,7 @@ public static class ConnectorOAuthEndpoints
     }
 
     private sealed record OAuthState(string ConnectorId, string CodeVerifier);
+
+    private sealed record UserConnectorDto(
+        string Id, string DisplayName, string Description, string? Icon, bool Connected);
 }

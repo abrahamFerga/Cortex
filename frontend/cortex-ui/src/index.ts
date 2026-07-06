@@ -30,6 +30,7 @@ export { ModuleTabView } from "./components/ModuleTabView";
 export { TabErrorBoundary } from "./components/TabErrorBoundary";
 export { AppErrorBoundary } from "./components/AppErrorBoundary";
 export { PermissionGate } from "./components/PermissionGate";
+export { ConnectedAccounts } from "./components/ConnectedAccounts";
 export { ChatPanel } from "./components/ChatPanel";
 export { ChatView } from "./components/ChatView";
 export { ConversationList } from "./components/ConversationList";
@@ -82,6 +83,7 @@ export type {
   AgentProfile,
   NotificationInfo,
   NotificationSettings,
+  UserConnector,
   OpsSnapshot,
   AdminUser,
   ToolCall,
