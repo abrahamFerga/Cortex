@@ -48,9 +48,16 @@ env:
 jobs:
   # ---------------------------------------------------------------------------
   # Build + push the API image to ACR, tagged with the git sha.
+  #
+  # The whole workflow is gated on the AZURE_DEPLOY_ENABLED repository variable
+  # (Settings → Secrets and variables → Actions → Variables → set it to "true")
+  # so pushes to main show a clean skip — not a red failure — until the Azure
+  # subscription is provisioned and the OIDC secrets below are configured.
+  # Downstream jobs inherit the gate through `needs`.
   # ---------------------------------------------------------------------------
   build-push:
     name: Build & push image
+    if: vars.AZURE_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.meta.outputs.image }}
