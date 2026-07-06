@@ -33,8 +33,10 @@ all runnable with no AI key via a built-in Mock provider. See [README.md](README
   per-user grants are ignored (their admin endpoints answer 409 with guidance), and JIT provisioning
   never invents a default role. Role → permission baselines remain the translation layer from IdP
   role names to fine-grained tool permissions.
-- **Provider-swappable AI** (OpenAI / Azure OpenAI / Ollama) plus a dependency-free **Mock** provider so
-  chat — and real, audited tool calls plus the approval gate — work with zero configuration.
+- **Provider-swappable AI** (OpenAI / Azure OpenAI / Anthropic / Ollama) plus a dependency-free **Mock**
+  provider so chat — and real, audited tool calls plus the approval gate — work with zero configuration.
+  Tenants switch provider/model at runtime in AI Settings (BYO key, vaulted write-only); the valid
+  provider list is single-sourced in `AiProviders`.
 - **Admin/security dashboard API** — the full permission map, users & roles, token usage, and audit log.
 - **MAF agent sessions** — conversations persist and resume via `AgentSession` state on the
   conversation row, so multi-turn context survives restarts and channel hops.
@@ -101,6 +103,19 @@ all runnable with no AI key via a built-in Mock provider. See [README.md](README
   or paste a file into the composer; both upload to the file store and attach as chips.
 - **Connect account** — the Integrations page shows a per-user "Connect account" button on enabled
   delegated connectors, opening the IdP consent page from /oauth/start.
+- **Editable server-driven tables** — a tab may declare a `TabEditor` (upsert/delete endpoints,
+  fields with `Numeric`/`Multiline`/`Required`, a `KeyField` for edit identity) and the shell grows
+  Add/Edit/Delete with zero module UI. Numeric fields post JSON numbers; blank optional fields are
+  omitted, not sent as `""`. Affordances ship only to callers holding the editor's permission.
+- **Row drill-down** — a tab's `DetailEndpoint` template gives every row a View button rendering a
+  generic detail document (prose + table sections). See [BUILDING_A_MODULE.md](BUILDING_A_MODULE.md).
+- **Connected accounts page** — end users link/unlink their own delegated-connector accounts at
+  `/account/connections` (backed by `GET /api/connectors` + `DELETE /api/connectors/{id}/login`),
+  reachable from the top-bar user name; the admin console is no longer the only door.
+- **Notification delivery card** — the admin Operations page edits the webhook URL + signing secret
+  (write-only: `null` keeps, `""` clears) where its health was already reported.
+- **Upload preflight** — `/api/platform/info` publishes `maxUploadBytes` and the composer refuses an
+  oversized attachment before uploading, with the server's 413 as the backstop.
 
 **Samples**
 - Three demo verticals — **Finance** (rule-based categorizer + LLM fallback, budgets, seeded demo ledger),

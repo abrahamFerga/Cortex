@@ -168,6 +168,56 @@ public void MapEndpoints(IEndpointRouteBuilder endpoints)
 If your module owns persistence, this is also where a `DbContext` would come in — apply its migrations in
 `IModule.MigrateAsync` and seed reference data in `SeedAsync`. (The Finance sample does exactly that.)
 
+> **Field names are the endpoint's JSON, not your C# properties.** The host serializes camelCase, so
+> `Columns`, editor fields, and `{field}` placeholders are declared camelCase (`"monthlyLimit"`) even
+> though the property they came from is `MonthlyLimit`.
+
+### Make the table editable — still no custom UI
+
+A read-only table often isn't enough. Declare an `Editor` on the tab and the shell's generic table grows
+**Add / Edit / Delete** — forms, validation, and confirmation dialogs included. The Finance budgets tab:
+
+```csharp
+Editor = new TabEditor
+{
+    UpsertEndpoint = "/api/finance/budgets",   // POST target; body = a JSON object of the fields
+    Permission = EditBudgets,                  // affordances ship ONLY to callers holding this
+    KeyField = "category",                     // identifies a row for Edit (locked in the form)
+    Fields =
+    [
+        new("category", "Category"),
+        new("monthlyLimit", "Monthly limit", Numeric: true),            // number input, posts a JSON number
+        new("currency", "Currency (blank keeps current)", Required: false),
+    ],
+},
+```
+
+The contract, so your endpoint works unshimmed:
+
+- **`UpsertEndpoint`** receives a POST for both add and edit; upsert by `KeyField` server-side.
+- **`DeleteEndpoint`** (optional) is a template with one `{field}` placeholder — e.g.
+  `/api/legal/clauses/{slug}` — resolved from the row. Omit it for no Delete.
+- **`KeyField = null`** means add-only (no per-row Edit) — right for append-style data like a diary.
+- **`Numeric: true`** renders a number input and posts a JSON **number**, so a `decimal`/`int` property
+  binds directly. **`Required: false`** fields left blank are **omitted** from the body (your endpoint
+  sees `null`, never `""`). **`Multiline: true`** renders a textarea.
+- The `Permission` gates only the UI affordances; your endpoints stay authorization-gated regardless —
+  declare `.RequireAuthorization(...)` on them like any other.
+
+### Give rows a drill-down — `DetailEndpoint`
+
+For "click a row, see the whole record" (a matter's parties, deadlines, and time in one page), declare a
+`DetailEndpoint` template on the tab:
+
+```csharp
+DetailEndpoint = "/api/legal/matters/{id}/detail",
+```
+
+The shell adds a **View** button per row and renders whatever generic *detail document* your endpoint
+returns: `{ title, subtitle?, sections: [ { heading, text? } | { heading, columns: [{field, header}],
+rows: [...] } ] }` — prose sections and tables, composed however the record demands, still zero React.
+The Legal sample's matter working file is the worked example.
+
 ## Step 5 — Install it
 
 One line in your host:
