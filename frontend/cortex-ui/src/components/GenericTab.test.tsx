@@ -111,6 +111,60 @@ describe("GenericTab (server-driven table)", () => {
     });
   });
 
+  it("with a detailEndpoint: View fetches the resolved URL and renders the detail document; Back returns", async () => {
+    const detail = {
+      title: "Vandelay acquisition",
+      subtitle: "Open · Client: Vandelay",
+      sections: [
+        { heading: "Time", text: "2h total, 1.5h billable." },
+        {
+          heading: "Parties",
+          columns: [{ field: "name", header: "Name" }],
+          rows: [{ name: "Kruger" }],
+        },
+      ],
+    };
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      void init;
+      const url = String(input);
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve(
+            url.includes("/detail") ? detail : [{ id: "m-1", name: "Vandelay acquisition", status: "Open" }],
+          ),
+      } as unknown as Response);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <GenericTab
+          tab={{
+            id: "matters",
+            label: "Matters",
+            route: "/legal/matters",
+            dataEndpoint: "/api/legal/matters",
+            columns: [{ field: "name", header: "Matter" }],
+            detailEndpoint: "/api/legal/matters/{id}/detail",
+          }}
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "View" }));
+
+    expect(await screen.findByText("Open · Client: Vandelay")).toBeTruthy();
+    expect(screen.getByText("2h total, 1.5h billable.")).toBeTruthy();
+    expect(screen.getByText("Kruger")).toBeTruthy();
+    expect(
+      fetchMock.mock.calls.some((c) => String(c[0]).endsWith("/api/legal/matters/m-1/detail")),
+    ).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "← Back" }));
+    expect(await screen.findByRole("button", { name: "View" })).toBeTruthy(); // the table is back
+  });
+
   it("with an editor: Edit prefills from the row and locks the key field; Delete DELETEs the resolved URL", async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       void input;

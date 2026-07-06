@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiSend, type ModuleTab, type TabColumn, type TabEditor } from "../lib/api";
+import {
+  apiGet,
+  apiSend,
+  type ModuleTab,
+  type TabColumn,
+  type TabDetailDocument,
+  type TabEditor,
+} from "../lib/api";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 interface GenericTabProps {
@@ -11,9 +18,77 @@ interface GenericTabProps {
 const inputClass =
   "w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800";
 
-/** Substitute the `{field}` placeholder in a delete-endpoint template from the row's values. */
-function resolveDeleteUrl(template: string, row: Record<string, unknown>): string {
+/** Substitute the `{field}` placeholder in an endpoint template from the row's values. */
+function resolveRowUrl(template: string, row: Record<string, unknown>): string {
   return template.replace(/\{(\w+)\}/, (_, field: string) => encodeURIComponent(String(row[field] ?? "")));
+}
+
+/** The generic drill-down: a detail document rendered as prose and sub-tables, with a way back. */
+function DetailView({ endpoint, onBack }: { endpoint: string; onBack: () => void }) {
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["tab-detail", endpoint],
+    queryFn: () => apiGet<TabDetailDocument>(endpoint),
+  });
+
+  if (isLoading) {
+    return <p className="text-sm text-slate-500">Loading…</p>;
+  }
+  if (isError) {
+    return <p className="text-sm text-red-600">{(error as Error).message}</p>;
+  }
+
+  const doc = data!;
+  return (
+    <div className="space-y-5">
+      <div>
+        <button
+          type="button"
+          onClick={onBack}
+          className="focus-ring mb-2 rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 dark:border-slate-600 dark:text-slate-300"
+        >
+          ← Back
+        </button>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{doc.title}</h2>
+        {doc.subtitle && <p className="text-sm text-slate-500 dark:text-slate-400">{doc.subtitle}</p>}
+      </div>
+
+      {doc.sections.map((section) => (
+        <section key={section.heading} className="space-y-2">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{section.heading}</h3>
+          {section.text != null && <p className="text-sm text-slate-700 dark:text-slate-200">{section.text}</p>}
+          {section.rows != null &&
+            ((section.rows.length ?? 0) === 0 ? (
+              <p className="text-sm text-slate-400">None.</p>
+            ) : (
+              <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                    <tr>
+                      {(section.columns ?? []).map((c) => (
+                        <th key={c.field} className="px-4 py-2 font-medium">
+                          {c.header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {section.rows.map((row, i) => (
+                      <tr key={i}>
+                        {(section.columns ?? []).map((c) => (
+                          <td key={c.field} className="px-4 py-2 text-slate-700 dark:text-slate-200">
+                            {row[c.field] == null ? "" : String(row[c.field])}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+        </section>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -104,7 +179,17 @@ function EditorForm({
  * When the tab declares an `editor` (and the server decided this caller may use it), the table
  * gains Add, per-row Edit (when a key field identifies records), and Delete with confirmation.
  */
-function DataTable({ endpoint, columns, editor }: { endpoint: string; columns: TabColumn[]; editor?: TabEditor | null }) {
+function DataTable({
+  endpoint,
+  columns,
+  editor,
+  detailEndpoint,
+}: {
+  endpoint: string;
+  columns: TabColumn[];
+  editor?: TabEditor | null;
+  detailEndpoint?: string | null;
+}) {
   const qc = useQueryClient();
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["tab-data", endpoint],
@@ -113,9 +198,10 @@ function DataTable({ endpoint, columns, editor }: { endpoint: string; columns: T
   // null = closed; {} = adding; a row = editing that row.
   const [editing, setEditing] = useState<Record<string, unknown> | null | "add">(null);
   const [deleting, setDeleting] = useState<Record<string, unknown> | null>(null);
+  const [detailUrl, setDetailUrl] = useState<string | null>(null);
 
   const remove = useMutation({
-    mutationFn: (row: Record<string, unknown>) => apiSend(resolveDeleteUrl(editor!.deleteEndpoint!, row), "DELETE"),
+    mutationFn: (row: Record<string, unknown>) => apiSend(resolveRowUrl(editor!.deleteEndpoint!, row), "DELETE"),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["tab-data"] }),
   });
 
@@ -124,6 +210,10 @@ function DataTable({ endpoint, columns, editor }: { endpoint: string; columns: T
   }
   if (isError) {
     return <p className="text-sm text-red-600">{(error as Error).message}</p>;
+  }
+
+  if (detailUrl) {
+    return <DetailView endpoint={detailUrl} onBack={() => setDetailUrl(null)} />;
   }
 
   const rows = data ?? [];
@@ -137,6 +227,7 @@ function DataTable({ endpoint, columns, editor }: { endpoint: string; columns: T
 
   const canEdit = editor?.keyField != null;
   const canDelete = editor?.deleteEndpoint != null;
+  const hasRowActions = detailEndpoint != null || (editor != null && (canEdit || canDelete));
 
   return (
     <div className="space-y-3">
@@ -163,13 +254,13 @@ function DataTable({ endpoint, columns, editor }: { endpoint: string; columns: T
                   {c.header}
                 </th>
               ))}
-              {editor && (canEdit || canDelete) && <th className="px-4 py-2" />}
+              {hasRowActions && <th className="px-4 py-2" />}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {rows.length === 0 && (
               <tr>
-                <td colSpan={cols.length + (editor ? 1 : 0)} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={cols.length + (hasRowActions ? 1 : 0)} className="px-4 py-6 text-center text-slate-400">
                   No data yet.
                 </td>
               </tr>
@@ -181,9 +272,18 @@ function DataTable({ endpoint, columns, editor }: { endpoint: string; columns: T
                     {row[c.field] == null ? "" : String(row[c.field])}
                   </td>
                 ))}
-                {editor && (canEdit || canDelete) && (
+                {hasRowActions && (
                   <td className="px-4 py-2 text-right">
                     <span className="inline-flex gap-2">
+                      {detailEndpoint && (
+                        <button
+                          type="button"
+                          onClick={() => setDetailUrl(resolveRowUrl(detailEndpoint, row))}
+                          className="focus-ring rounded border border-brand-300 px-2 py-0.5 text-xs font-medium text-brand-700 dark:border-brand-800 dark:text-brand-300"
+                        >
+                          View
+                        </button>
+                      )}
                       {canEdit && (
                         <button
                           type="button"
@@ -242,7 +342,12 @@ export function GenericTab({ tab, children }: GenericTabProps) {
 
       {children ??
         (tab.dataEndpoint ? (
-          <DataTable endpoint={tab.dataEndpoint} columns={tab.columns ?? []} editor={tab.editor} />
+          <DataTable
+            endpoint={tab.dataEndpoint}
+            columns={tab.columns ?? []}
+            editor={tab.editor}
+            detailEndpoint={tab.detailEndpoint}
+          />
         ) : (
           <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
             {tab.placeholder ?? "Nothing to show here yet."}

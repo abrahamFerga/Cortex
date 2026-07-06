@@ -78,6 +78,15 @@ public sealed record TabDescriptor
     public TabEditor? Editor { get; init; }
 
     /// <summary>
+    /// Optional drill-down: a GET endpoint with one <c>{field}</c> placeholder substituted from the
+    /// row (e.g. <c>/api/legal/matters/{id}/detail</c>), returning a DETAIL DOCUMENT the shell
+    /// renders generically — <c>{ title, subtitle?, sections: [{ heading, text? } | { heading,
+    /// columns: [{field, header}], rows: [...] }] }</c>. Gives list rows a composed detail view
+    /// (a matter's parties/deadlines/tasks/documents in one page) with no custom UI.
+    /// </summary>
+    public string? DetailEndpoint { get; init; }
+
+    /// <summary>
     /// Optional friendly empty-state message the shell shows when the tab has no <see cref="DataEndpoint"/>
     /// and the consuming app supplies no content (e.g. "Your food diary will appear here."). Gives a tab an
     /// intentional placeholder — useful for a capability that's declared in the manifest but not yet built —

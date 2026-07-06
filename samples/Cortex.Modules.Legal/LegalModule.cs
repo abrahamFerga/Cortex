@@ -31,7 +31,7 @@ public sealed class LegalModule : IModule
     {
         Id = Id,
         DisplayName = "Legal",
-        Version = "1.13.0",
+        Version = "1.14.0",
         Description = "Matter-centric legal assistant. Organize case documents into matters, docket deadlines with reminders, run conflict checks at intake, track billable time, manage matter tasks, search a clause library, and draft clauses for review.",
         Icon = "scale",
         AgentInstructions =
@@ -325,6 +325,7 @@ public sealed class LegalModule : IModule
                 Id = "matters", Label = "Matters", Route = "/legal/matters", Icon = "folder", Order = 1,
                 Permission = ViewMatters,
                 DataEndpoint = "/api/legal/matters",
+                DetailEndpoint = "/api/legal/matters/{id}/detail",
                 Columns =
                 [
                     new("name", "Matter"), new("clientName", "Client"), new("status", "Status"),
@@ -700,6 +701,81 @@ public sealed class LegalModule : IModule
             })
             .RequireAuthorization(PermissionRequirement.PolicyName(ViewMatters))
             .WithName("Legal_GetTime");
+
+        // The matter's working file as a generic DETAIL DOCUMENT (drill-down from the Matters tab):
+        // parties, open deadlines (overdue flagged), open tasks, time totals, and documents in one
+        // page. Outside the wall it 404s — indistinguishable from missing, like cross-tenant ids.
+        group.MapGet("/matters/{matterId:guid}/detail", async (
+                Guid matterId, LegalDbContext db, Cortex.Core.Identity.ICurrentUser current,
+                CancellationToken cancellationToken) =>
+            {
+                var matter = await db.Matters.FirstOrDefaultAsync(m => m.Id == matterId, cancellationToken);
+                if (matter is null || !matter.IsAccessibleTo(current.UserId))
+                {
+                    return Results.NotFound();
+                }
+
+                var now = DateTimeOffset.UtcNow;
+                var parties = await db.MatterParties.Where(p => p.MatterId == matterId)
+                    .OrderBy(p => p.Role).ThenBy(p => p.Name).Take(50).ToListAsync(cancellationToken);
+                var deadlines = await db.MatterDeadlines.Where(d => d.MatterId == matterId && d.CompletedAt == null)
+                    .OrderBy(d => d.DueAt).Take(20).ToListAsync(cancellationToken);
+                var tasks = await db.MatterTasks.Where(t => t.MatterId == matterId && t.CompletedAt == null)
+                    .OrderBy(t => t.DueOn == null).ThenBy(t => t.DueOn).Take(20).ToListAsync(cancellationToken);
+                var time = await db.TimeEntries.Where(t => t.MatterId == matterId).ToListAsync(cancellationToken);
+                var documents = await db.MatterDocuments.Where(d => d.MatterId == matterId)
+                    .OrderByDescending(d => d.CreatedAt).Take(20).ToListAsync(cancellationToken);
+
+                var sections = new List<object>
+                {
+                    new
+                    {
+                        heading = "Parties",
+                        columns = new[] { new { field = "name", header = "Name" }, new { field = "role", header = "Role" }, new { field = "notes", header = "Notes" } },
+                        rows = (object)parties.Select(p => new { name = p.Name, role = p.Role.ToString(), notes = p.Notes }).ToArray(),
+                    },
+                    new
+                    {
+                        heading = "Open deadlines",
+                        columns = new[] { new { field = "dueAt", header = "Due" }, new { field = "title", header = "Deadline" }, new { field = "status", header = "Status" } },
+                        rows = (object)deadlines.Select(d => new
+                        {
+                            dueAt = d.DueAt.ToString("yyyy-MM-dd"),
+                            title = d.Title,
+                            status = d.DueAt < now ? "OVERDUE" : d.DueAt <= now.AddDays(7) ? "Due soon" : "Open",
+                        }).ToArray(),
+                    },
+                    new
+                    {
+                        heading = "Open tasks",
+                        columns = new[] { new { field = "title", header = "Task" }, new { field = "assignedTo", header = "Assigned to" }, new { field = "dueOn", header = "Target" } },
+                        rows = (object)tasks.Select(t => new { title = t.Title, assignedTo = t.AssignedTo, dueOn = t.DueOn?.ToString("yyyy-MM-dd") }).ToArray(),
+                    },
+                    new
+                    {
+                        heading = "Time",
+                        text = time.Count == 0
+                            ? "No time logged."
+                            : $"{time.Sum(t => t.Hours):0.##}h total, {time.Where(t => t.Billable).Sum(t => t.Hours):0.##}h billable across {time.Count} entr(ies).",
+                    },
+                    new
+                    {
+                        heading = "Documents",
+                        columns = new[] { new { field = "fileName", header = "File" }, new { field = "note", header = "Note" }, new { field = "attachedAt", header = "Attached" } },
+                        rows = (object)documents.Select(d => new { fileName = d.FileName, note = d.Note, attachedAt = d.CreatedAt.ToString("yyyy-MM-dd") }).ToArray(),
+                    },
+                };
+
+                return Results.Ok(new
+                {
+                    title = matter.Name,
+                    subtitle = $"{matter.Status}{(matter.ClientName is null ? "" : $" · Client: {matter.ClientName}")}" +
+                               (matter.RestrictedUserIdsJson is null ? "" : " · RESTRICTED (ethical wall)"),
+                    sections,
+                });
+            })
+            .RequireAuthorization(PermissionRequirement.PolicyName(ViewMatters))
+            .WithName("Legal_GetMatterDetail");
 
         // A matter's attached documents (file ids resolve against /api/files/{id}). Outside the
         // wall, the matter 404s — indistinguishable from missing, like cross-tenant ids.

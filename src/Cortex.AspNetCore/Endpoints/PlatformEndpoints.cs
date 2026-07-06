@@ -62,7 +62,8 @@ public static class PlatformEndpoints
                     ? new TabEditorDto(
                         e.UpsertEndpoint, e.DeleteEndpoint, e.KeyField,
                         e.Fields.Select(f => new TabEditorFieldDto(f.Field, f.Label, f.Multiline, f.Required)).ToArray())
-                    : null))
+                    : null,
+                t.DetailEndpoint))
             .ToArray();
 
         return new ModuleDto(
@@ -75,7 +76,7 @@ public static class PlatformEndpoints
 
     private sealed record TabDto(
         string Id, string Label, string Route, string? Icon, string? DataEndpoint, TabColumnDto[] Columns, string? Placeholder,
-        TabEditorDto? Editor);
+        TabEditorDto? Editor, string? DetailEndpoint);
 
     private sealed record TabColumnDto(string Field, string Header);
 

@@ -50,6 +50,23 @@ export interface ModuleTab {
   placeholder?: string;
   /** Add/edit/delete affordances for the table; present only when the caller may use them. */
   editor?: TabEditor | null;
+  /** Drill-down endpoint with one `{field}` placeholder resolved from the row; returns a TabDetailDocument. */
+  detailEndpoint?: string | null;
+}
+
+/** A section of a drill-down detail document: prose, or a sub-table. */
+export interface TabDetailSection {
+  heading: string;
+  text?: string;
+  columns?: TabColumn[];
+  rows?: Record<string, unknown>[];
+}
+
+/** The generic drill-down document a tab's `detailEndpoint` returns. */
+export interface TabDetailDocument {
+  title: string;
+  subtitle?: string;
+  sections: TabDetailSection[];
 }
 
 /** A module returned from GET /api/platform/modules. */
