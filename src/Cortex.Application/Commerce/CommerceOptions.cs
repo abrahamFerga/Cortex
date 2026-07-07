@@ -24,6 +24,15 @@ public sealed class CommerceOptions
     /// <summary>Dedicated-tier dispatch target (the deploy-customer workflow). Null = tier not offered.</summary>
     public DedicatedOptions? Dedicated { get; set; }
 
+    /// <summary>SECRET — the Stripe API key used for meter events. User-secrets/Key Vault only.</summary>
+    public string? StripeApiKey { get; set; }
+
+    /// <summary>The Stripe billing meter's event_name that AI token usage reports against.</summary>
+    public string MeterEventName { get; set; } = "cortex_ai_tokens";
+
+    /// <summary>How often accumulated usage is pushed to the meter.</summary>
+    public int UsageExportSeconds { get; set; } = 60;
+
     public bool IsEnabled => Enabled && !string.IsNullOrWhiteSpace(WebhookSecret);
 }
 

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "cortex-site",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "C:/Users/abrah/source/cortex-site",
+        "dev",
+        "--port",
+        "4321"
+      ],
+      "port": 4321
+    }
+  ]
+}

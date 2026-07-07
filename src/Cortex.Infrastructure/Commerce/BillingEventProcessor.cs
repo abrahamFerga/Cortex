@@ -65,6 +65,7 @@ public sealed class BillingEventProcessor(
         var offerings = scope.ServiceProvider.GetRequiredService<IProductOfferingCatalog>();
 
         await SweepExpiredGraceAsync(db, dedicated, offerings, ct);
+        await ExportUsageAsync(scope.ServiceProvider, db, ct);
 
         var pending = await db.BillingEvents
             .Where(e => e.ProcessedAt == null && e.Attempts < MaxAttempts)
@@ -263,6 +264,67 @@ public sealed class BillingEventProcessor(
             entitlement.Status = EntitlementStatus.Deprovisioned;
             entitlement.UpdatedAt = now;
             await db.SaveChangesAsync(ct);
+        }
+    }
+
+    private DateTimeOffset _lastUsageExport = DateTimeOffset.MinValue;
+
+    /// <summary>
+    /// The metering half of "platform-managed AI" (docs/COMMERCIALIZATION.md phase 7): pushes
+    /// each Active, platform-key tenant's token consumption since its watermark to the billing
+    /// meter. BYO-key tenants (their own provider connection) are never metered. The watermark
+    /// advances only after a successful report; the meter's idempotency identifier makes a
+    /// crash-between-report-and-save retry harmless.
+    /// </summary>
+    private async Task ExportUsageAsync(IServiceProvider services, PlatformDbContext db, CancellationToken ct)
+    {
+        var meter = services.GetRequiredService<IBillingMeter>();
+        var now = DateTimeOffset.UtcNow;
+        if (!meter.IsConfigured || now - _lastUsageExport < TimeSpan.FromSeconds(options.Value.UsageExportSeconds))
+        {
+            return;
+        }
+
+        _lastUsageExport = now;
+        var audit = services.GetRequiredService<AuditDbContext>();
+
+        var active = await db.TenantEntitlements
+            .Where(e => e.Status == EntitlementStatus.Active && e.TenantId != null && e.CustomerRef != null)
+            .Take(100)
+            .ToListAsync(ct);
+
+        foreach (var entitlement in active)
+        {
+            // BYO key = the tenant overrode the provider connection; their usage is their bill.
+            var byok = await db.TenantAiSettings.IgnoreQueryFilters()
+                .AnyAsync(a => a.TenantId == entitlement.TenantId && a.Provider != null && a.Provider != "", ct);
+            if (byok)
+            {
+                continue;
+            }
+
+            var since = entitlement.UsageReportedThrough ?? entitlement.CreatedAt;
+            var total = await audit.TokenUsage
+                .Where(u => u.TenantId == entitlement.TenantId && u.OccurredAt > since && u.OccurredAt <= now)
+                .SumAsync(u => (long?)u.TotalTokens, ct) ?? 0L;
+            if (total <= 0)
+            {
+                continue;
+            }
+
+            try
+            {
+                await meter.ReportUsageAsync(
+                    entitlement.CustomerRef!, total, now,
+                    idempotencyKey: $"{entitlement.Id:N}-{now.ToUnixTimeSeconds()}", ct);
+                entitlement.UsageReportedThrough = now;
+                await db.SaveChangesAsync(ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Watermark untouched — the window re-reports next cycle under a new identifier.
+                logger.LogWarning(ex, "Usage export for entitlement {Id} failed; will retry.", entitlement.Id);
+            }
         }
     }
 

@@ -60,4 +60,7 @@ public sealed class TenantEntitlement
 
     /// <summary>When the grace window ends and deprovisioning may run (set on cancellation).</summary>
     public DateTimeOffset? DeprovisionAfter { get; set; }
+
+    /// <summary>Usage-meter watermark: consumption up to here has been reported to billing.</summary>
+    public DateTimeOffset? UsageReportedThrough { get; set; }
 }
