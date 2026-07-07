@@ -5,6 +5,7 @@ using Cortex.Connectors.LocalFolder;
 using Cortex.Connectors.GoogleDrive;
 using Cortex.Connectors.MsGraph;
 using Cortex.Connectors.Peer;
+using Cortex.Connectors.S3;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cortex base platform host — no domain modules installed here.
@@ -32,6 +33,7 @@ builder.AddCortexConnector<AzureBlobConnector>();
 builder.AddCortexConnector<CortexPeerConnector>();
 builder.AddCortexConnector<MsGraphConnector>();
 builder.AddCortexConnector<GoogleDriveConnector>();
+builder.AddCortexConnector<S3Connector>();
 
 var app = builder.Build();
 
