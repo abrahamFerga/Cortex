@@ -99,6 +99,7 @@ and change without a deploy.
 | `Documents` | `Enabled` | Platform PDF/document tools |
 | `Files` | `Provider` (Local/AzureBlob) + provider settings | |
 | `Channels:WhatsApp` | `Enabled` + Meta Cloud API secrets | Secrets via user-secrets/env |
+| `Channels:Email` | `Enabled`, `Host`/`Port`/`UseSsl`, `Username`, `Password`, `Folder`, `ModuleId`, `TenantSlug`, `PollSeconds`, `ReplyEnabled` | IMAP intake mailbox polled into agent turns (docs/INBOUND_CHANNELS.md); password via user-secrets/env; replies off by default |
 | `Auth` | `Authority`, `Audience`, `PermissionSource` (Database/Token) | Empty = dev-auth in Development only |
 | `Secrets` | `Provider` (DataProtection/AzureKeyVault), `KeyVaultUri` | Where runtime-entered secrets rest |
 | `Cors:Origins` | Allowed SPA origins | Aspire injects these automatically in dev |

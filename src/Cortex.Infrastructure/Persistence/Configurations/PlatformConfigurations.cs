@@ -65,6 +65,17 @@ internal sealed class TenantEntitlementConfiguration : IEntityTypeConfiguration<
     }
 }
 
+internal sealed class ChannelCursorConfiguration : IEntityTypeConfiguration<ChannelCursor>
+{
+    public void Configure(EntityTypeBuilder<ChannelCursor> b)
+    {
+        b.ToTable("channel_cursors");
+        b.HasKey(x => x.ChannelId);
+        b.Property(x => x.ChannelId).HasMaxLength(64);
+        b.Property(x => x.Watermark).HasMaxLength(256);
+    }
+}
+
 internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
 {
     public void Configure(EntityTypeBuilder<User> b)

@@ -41,6 +41,7 @@ public sealed class PlatformDbContext(
     public DbSet<UserConnectorLogin> UserConnectorLogins => Set<UserConnectorLogin>();
     public DbSet<BillingEvent> BillingEvents => Set<BillingEvent>();
     public DbSet<TenantEntitlement> TenantEntitlements => Set<TenantEntitlement>();
+    public DbSet<ChannelCursor> ChannelCursors => Set<ChannelCursor>();
 
     private static readonly MethodInfo ApplyTenantFilterMethod = typeof(PlatformDbContext)
         .GetMethod(nameof(ApplyTenantFilter), BindingFlags.NonPublic | BindingFlags.Instance)!;

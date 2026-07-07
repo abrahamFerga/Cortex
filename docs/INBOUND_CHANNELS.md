@@ -105,6 +105,11 @@ land as an agent turn ("client intake" with documents filed), optionally answere
    to `/channels/{id}/webhook` with `/whatsapp/webhook` kept as an alias).
 3. **Ship email intake** as the first polling adapter (fake `IImapClient` tests: new mail →
    provisioned identity → turn with attachments → optional SMTP reply; watermark survival).
+   **✅ Shipped** — built directly on `IChannelTurnService` (a polling channel needs no webhook, so
+   step 2 wasn't a prerequisite): `Channels:Email` options, `IImapInbox` seam with a MailKit
+   implementation, `EmailChannelService.PollOnceAsync` + a `PeriodicTimer` poller hosted service
+   (the jobs primitive can take over when multi-instance leasing matters), and the
+   `channel_cursors` table persisting the `UIDVALIDITY:lastUID` watermark.
 4. **Document** the seam in BUILDING_A_PRODUCT.md and retire the "inbound channels" entry
    from the not-extensible list.
 
