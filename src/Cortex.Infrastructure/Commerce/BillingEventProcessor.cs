@@ -62,8 +62,9 @@ public sealed class BillingEventProcessor(
         var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
         var provisioning = scope.ServiceProvider.GetRequiredService<ITenantProvisioningService>();
         var dedicated = scope.ServiceProvider.GetRequiredService<IDedicatedEnvironmentProvisioner>();
+        var offerings = scope.ServiceProvider.GetRequiredService<IProductOfferingCatalog>();
 
-        await SweepExpiredGraceAsync(db, dedicated, ct);
+        await SweepExpiredGraceAsync(db, dedicated, offerings, ct);
 
         var pending = await db.BillingEvents
             .Where(e => e.ProcessedAt == null && e.Attempts < MaxAttempts)
@@ -75,7 +76,7 @@ public sealed class BillingEventProcessor(
         {
             try
             {
-                await ProcessAsync(db, provisioning, dedicated, evt, ct);
+                await ProcessAsync(db, provisioning, dedicated, offerings, evt, ct);
                 evt.ProcessedAt = DateTimeOffset.UtcNow;
                 evt.Error = null;
             }
@@ -100,12 +101,13 @@ public sealed class BillingEventProcessor(
 
     private async Task ProcessAsync(
         PlatformDbContext db, ITenantProvisioningService provisioning,
-        IDedicatedEnvironmentProvisioner dedicated, BillingEvent evt, CancellationToken ct)
+        IDedicatedEnvironmentProvisioner dedicated, IProductOfferingCatalog offerings,
+        BillingEvent evt, CancellationToken ct)
     {
         switch (evt.Type)
         {
             case "checkout.session.completed":
-                await HandleCheckoutCompletedAsync(db, provisioning, dedicated, evt, ct);
+                await HandleCheckoutCompletedAsync(db, provisioning, dedicated, offerings, evt, ct);
                 break;
             case "customer.subscription.updated":
                 await HandleSubscriptionUpdatedAsync(db, evt, ct);
@@ -231,7 +233,8 @@ public sealed class BillingEventProcessor(
     /// automatic.
     /// </summary>
     private async Task SweepExpiredGraceAsync(
-        PlatformDbContext db, IDedicatedEnvironmentProvisioner dedicated, CancellationToken ct)
+        PlatformDbContext db, IDedicatedEnvironmentProvisioner dedicated, IProductOfferingCatalog offerings,
+        CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
         var expired = await db.TenantEntitlements
@@ -241,7 +244,9 @@ public sealed class BillingEventProcessor(
 
         foreach (var entitlement in expired)
         {
-            if (string.Equals(entitlement.Plan, "dedicated", StringComparison.OrdinalIgnoreCase) && dedicated.IsConfigured)
+            var isDedicated = offerings.FindPlan(entitlement.ProductId, entitlement.Plan)?.Dedicated
+                ?? string.Equals(entitlement.Plan, "dedicated", StringComparison.OrdinalIgnoreCase);
+            if (isDedicated && dedicated.IsConfigured)
             {
                 if (entitlement.CustomerSlug is { } slug)
                 {
@@ -292,7 +297,8 @@ public sealed class BillingEventProcessor(
     /// </summary>
     private async Task HandleCheckoutCompletedAsync(
         PlatformDbContext db, ITenantProvisioningService provisioning,
-        IDedicatedEnvironmentProvisioner dedicated, BillingEvent evt, CancellationToken ct)
+        IDedicatedEnvironmentProvisioner dedicated, IProductOfferingCatalog offerings,
+        BillingEvent evt, CancellationToken ct)
     {
         using var json = JsonDocument.Parse(evt.PayloadJson);
         var session = json.RootElement.GetProperty("data").GetProperty("object");
@@ -320,10 +326,15 @@ public sealed class BillingEventProcessor(
             Seats = Int(metadata, "seats"),
         }).Entity;
 
+        // The plan the HOST declared is authoritative for what this purchase grants; the checkout
+        // metadata only identifies who bought what. Hosts without a registered offering fall back
+        // to metadata-driven provisioning (plan == null).
+        var plan = offerings.FindPlan(entitlement.ProductId, entitlement.Plan);
+
         // Dedicated tier: infrastructure, not a row in the shared deployment. Dispatch the
         // deploy-customer workflow and stay Provisioning until the environment reports healthy —
         // a purchase with no dispatcher configured fails loudly (retry → dead-letter → triage).
-        if (string.Equals(entitlement.Plan, "dedicated", StringComparison.OrdinalIgnoreCase))
+        if (plan?.Dedicated ?? string.Equals(entitlement.Plan, "dedicated", StringComparison.OrdinalIgnoreCase))
         {
             if (!dedicated.IsConfigured)
             {
@@ -345,9 +356,11 @@ public sealed class BillingEventProcessor(
             Slug: Str(metadata, "slug") ?? "",
             AdminEmail: Str(metadata, "adminEmail") ?? "",
             AdminSubject: Str(metadata, "adminSubject"),
-            Modules: Str(metadata, "modules")?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
-            MaxSeats: Int(metadata, "seats"),
-            MonthlyTokenBudget: Long(metadata, "monthlyTokenBudget")), ct);
+            Modules: plan is not null
+                ? plan.Modules
+                : Str(metadata, "modules")?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            MaxSeats: Int(metadata, "seats") ?? plan?.DefaultSeats,
+            MonthlyTokenBudget: plan is not null ? plan.MonthlyTokenBudget : Long(metadata, "monthlyTokenBudget")), ct);
 
         if (result.Error == ProvisionError.SlugTaken)
         {

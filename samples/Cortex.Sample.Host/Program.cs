@@ -1,3 +1,4 @@
+using Cortex.Application.Commerce;
 using Cortex.AspNetCore.Connectors;
 using Cortex.AspNetCore.Hosting;
 using Cortex.AspNetCore.Modules;
@@ -32,6 +33,19 @@ builder.AddCortexConnector<LocalFolderConnector>();
 builder.AddCortexConnector<AzureBlobConnector>();
 builder.AddCortexConnector<CortexPeerConnector>(); // verticals are separate systems; this is how they talk
 builder.AddCortexConnector<MsGraphConnector>();
+
+// What this host SELLS (docs/COMMERCIALIZATION.md): the plan — not checkout metadata — decides
+// what a purchase grants. The sample sells the Legal vertical in the three standard tiers.
+builder.Services.AddCortexProduct(new ProductOffering
+{
+    ProductId = "the-lawyer",
+    Plans =
+    [
+        new ProductPlan { Id = "solo", Modules = ["legal"], DefaultSeats = 1, MonthlyTokenBudget = 200_000 },
+        new ProductPlan { Id = "team", Modules = ["legal"], DefaultSeats = 5, MonthlyTokenBudget = 500_000 },
+        new ProductPlan { Id = "dedicated", Dedicated = true },
+    ],
+});
 
 var app = builder.Build();
 
