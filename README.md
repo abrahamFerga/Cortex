@@ -183,6 +183,8 @@ request against a locally-running instance (it uses the dev-auth headers, so no 
 
 ## Adding a module
 
+**Building a whole product (own repo, own brand)? [BUILDING_A_PRODUCT.md](BUILDING_A_PRODUCT.md) catalogs every host seam.**
+
 **New here? [BUILDING_A_MODULE.md](BUILDING_A_MODULE.md) walks you through building a complete module from
 scratch** (the worked example lives in [`samples/Cortex.Modules.Tasks`](samples/Cortex.Modules.Tasks)).
 The short version:

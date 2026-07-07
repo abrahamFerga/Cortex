@@ -239,10 +239,10 @@ function NoModulesNotice({ anyInstalled }: { anyInstalled: boolean }) {
         </p>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
           {anyInstalled
-            ? "Modules are installed but none is enabled for this tenant. Enable one under Admin → Modules."
+            ? "Modules are installed but none is enabled for this workspace. An administrator can enable one under Admin → Modules."
             : "This deployment has no domain modules installed — the assistant is always a module's assistant. " +
-              "If you meant to try the demo, run the SAMPLE host (samples/Cortex.Sample.AppHost), which ships " +
-              "Finance, Nutrition, and Legal; a product host installs modules with AddCortexModule<T>()."}
+              "A product host installs its modules with AddCortexModule<T>(); if you operate this deployment, " +
+              "check the host's Program.cs."}
         </p>
       </div>
     </div>

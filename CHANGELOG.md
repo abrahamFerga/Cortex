@@ -117,6 +117,16 @@ all runnable with no AI key via a built-in Mock provider. See [README.md](README
 - **Upload preflight** — `/api/platform/info` publishes `maxUploadBytes` and the composer refuses an
   oversized attachment before uploading, with the server's 413 as the backstop.
 
+- **Google Drive connector** — the second delegated (per-user OAuth) data source; the OAuth
+  machinery is IdP-agnostic now (manifest URL templates: Entra default, fixed-URL IdPs like
+  Google supported, Authority optional).
+- **Email delivery** — `ISmtpTransport` seam + `EmailNotificationChannel` in the notification
+  fan-out (`Email:` config; password via user-secrets/Key Vault).
+- **Host extensibility** — `ITenantProvisionedHook` (act on provisioning; welcome-email worked
+  example), `AddCortexNotificationChannel` / `AddCortexPlatformTools` first-class helpers,
+  `Auth:DefaultRole` for JIT users, and [BUILDING_A_PRODUCT.md](BUILDING_A_PRODUCT.md)
+  cataloging every seam.
+
 **Samples**
 - Three demo verticals — **Finance** (rule-based categorizer + LLM fallback, budgets, seeded demo ledger),
   **Nutrition**, **Legal** — plus a minimal **Tasks** template that backs the build-a-module tutorial.

@@ -83,8 +83,8 @@ export function ModulesAdmin() {
           <p className="font-medium text-slate-500 dark:text-slate-300">No modules are installed in this deployment.</p>
           <p>
             Modules are installed in code by the product host (<code className="font-mono text-xs">AddCortexModule&lt;T&gt;()</code>)
-            — this page only toggles them per tenant. The bare platform host ships none; run the sample host
-            (samples/Cortex.Sample.AppHost) for Finance, Nutrition, and Legal.
+            — this page only toggles them per tenant. This deployment's host installs modules in code
+            (AddCortexModule) — none are installed here yet.
           </p>
         </div>
       ) : (
