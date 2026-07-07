@@ -20,12 +20,17 @@ variable "project" {
 }
 
 variable "environment" {
-  description = "Deployment environment (dev, staging, prod). Part of every resource name."
+  description = <<-EOT
+    Deployment environment — part of every resource name. dev/staging/prod for the shared
+    SaaS rings, or a CUSTOMER SLUG (lowercase kebab) for a dedicated per-customer environment
+    (the deploy-customer workflow passes the slug here, giving cortex-<slug>-* resources and
+    a tenants/<slug>.tfstate state of their own).
+  EOT
   type        = string
 
   validation {
-    condition     = contains(["dev", "staging", "prod"], var.environment)
-    error_message = "environment must be one of: dev, staging, prod."
+    condition     = can(regex("^[a-z][a-z0-9-]{1,20}$", var.environment)) && !endswith(var.environment, "-")
+    error_message = "environment must be lowercase kebab (2-21 chars, starts with a letter, no trailing hyphen): dev, staging, prod, or a customer slug."
   }
 }
 

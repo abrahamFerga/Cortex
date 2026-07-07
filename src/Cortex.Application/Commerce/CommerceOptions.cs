@@ -21,5 +21,20 @@ public sealed class CommerceOptions
     /// <summary>Days a canceled subscription's data is kept before deprovisioning may run.</summary>
     public int CancellationGraceDays { get; set; } = 30;
 
+    /// <summary>Dedicated-tier dispatch target (the deploy-customer workflow). Null = tier not offered.</summary>
+    public DedicatedOptions? Dedicated { get; set; }
+
     public bool IsEnabled => Enabled && !string.IsNullOrWhiteSpace(WebhookSecret);
+}
+
+/// <summary>Where dedicated-environment work is dispatched (GitHub workflow-dispatch).</summary>
+public sealed class DedicatedOptions
+{
+    public string Owner { get; set; } = "";
+    public string Repo { get; set; } = "";
+    public string Workflow { get; set; } = "deploy-customer.yml";
+    public string Ref { get; set; } = "main";
+
+    /// <summary>SECRET — a token with actions:write on the repo. User-secrets/Key Vault only.</summary>
+    public string Token { get; set; } = "";
 }

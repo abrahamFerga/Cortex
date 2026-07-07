@@ -48,6 +48,13 @@ public sealed class TenantEntitlement
     /// <summary>The provider's customer id (e.g. "cus_…").</summary>
     public string? CustomerRef { get; set; }
 
+    /// <summary>
+    /// The customer slug from the purchase — the provisioning identity. For shared SaaS it becomes
+    /// the tenant's slug; for Dedicated it is the environment's Terraform state key and the handle
+    /// the deprovision sweep destroys by (there is no local tenant row to read it from).
+    /// </summary>
+    public string? CustomerSlug { get; set; }
+
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 

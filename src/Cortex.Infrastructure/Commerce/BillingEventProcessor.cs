@@ -61,6 +61,9 @@ public sealed class BillingEventProcessor(
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
         var provisioning = scope.ServiceProvider.GetRequiredService<ITenantProvisioningService>();
+        var dedicated = scope.ServiceProvider.GetRequiredService<IDedicatedEnvironmentProvisioner>();
+
+        await SweepExpiredGraceAsync(db, dedicated, ct);
 
         var pending = await db.BillingEvents
             .Where(e => e.ProcessedAt == null && e.Attempts < MaxAttempts)
@@ -72,7 +75,7 @@ public sealed class BillingEventProcessor(
         {
             try
             {
-                await ProcessAsync(db, provisioning, evt, ct);
+                await ProcessAsync(db, provisioning, dedicated, evt, ct);
                 evt.ProcessedAt = DateTimeOffset.UtcNow;
                 evt.Error = null;
             }
@@ -96,12 +99,13 @@ public sealed class BillingEventProcessor(
     }
 
     private async Task ProcessAsync(
-        PlatformDbContext db, ITenantProvisioningService provisioning, BillingEvent evt, CancellationToken ct)
+        PlatformDbContext db, ITenantProvisioningService provisioning,
+        IDedicatedEnvironmentProvisioner dedicated, BillingEvent evt, CancellationToken ct)
     {
         switch (evt.Type)
         {
             case "checkout.session.completed":
-                await HandleCheckoutCompletedAsync(db, provisioning, evt, ct);
+                await HandleCheckoutCompletedAsync(db, provisioning, dedicated, evt, ct);
                 break;
             case "customer.subscription.updated":
                 await HandleSubscriptionUpdatedAsync(db, evt, ct);
@@ -220,6 +224,43 @@ public sealed class BillingEventProcessor(
         }
     }
 
+    /// <summary>
+    /// The cancellation grace window's other end: entitlements whose DeprovisionAfter has passed
+    /// get their dedicated environment destroyed (workflow dispatch) and move to Deprovisioned.
+    /// Shared-SaaS tenants stay suspended-and-kept — row deletion is an operator decision, never
+    /// automatic.
+    /// </summary>
+    private async Task SweepExpiredGraceAsync(
+        PlatformDbContext db, IDedicatedEnvironmentProvisioner dedicated, CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var expired = await db.TenantEntitlements
+            .Where(e => e.Status == EntitlementStatus.Canceled && e.DeprovisionAfter != null && e.DeprovisionAfter < now)
+            .Take(10)
+            .ToListAsync(ct);
+
+        foreach (var entitlement in expired)
+        {
+            if (string.Equals(entitlement.Plan, "dedicated", StringComparison.OrdinalIgnoreCase) && dedicated.IsConfigured)
+            {
+                if (entitlement.CustomerSlug is { } slug)
+                {
+                    await dedicated.DispatchAsync(new DedicatedEnvironmentRequest(slug, "destroy"), ct);
+                }
+                else
+                {
+                    logger.LogError(
+                        "Entitlement {Id} (dedicated) has no customer slug — environment must be destroyed by hand.",
+                        entitlement.Id);
+                }
+            }
+
+            entitlement.Status = EntitlementStatus.Deprovisioned;
+            entitlement.UpdatedAt = now;
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
     private static Task<TenantEntitlement?> FindEntitlementAsync(
         PlatformDbContext db, string subscriptionRef, CancellationToken ct) =>
         db.TenantEntitlements.FirstOrDefaultAsync(e => e.SubscriptionRef == subscriptionRef, ct);
@@ -250,7 +291,8 @@ public sealed class BillingEventProcessor(
     /// adminSubject, modules (comma-separated), seats, monthlyTokenBudget.
     /// </summary>
     private async Task HandleCheckoutCompletedAsync(
-        PlatformDbContext db, ITenantProvisioningService provisioning, BillingEvent evt, CancellationToken ct)
+        PlatformDbContext db, ITenantProvisioningService provisioning,
+        IDedicatedEnvironmentProvisioner dedicated, BillingEvent evt, CancellationToken ct)
     {
         using var json = JsonDocument.Parse(evt.PayloadJson);
         var session = json.RootElement.GetProperty("data").GetProperty("object");
@@ -274,8 +316,29 @@ public sealed class BillingEventProcessor(
             Plan = Str(metadata, "plan") ?? "unknown",
             SubscriptionRef = subscriptionRef,
             CustomerRef = Str(session, "customer"),
+            CustomerSlug = Str(metadata, "slug")?.Trim().ToLowerInvariant(),
             Seats = Int(metadata, "seats"),
         }).Entity;
+
+        // Dedicated tier: infrastructure, not a row in the shared deployment. Dispatch the
+        // deploy-customer workflow and stay Provisioning until the environment reports healthy —
+        // a purchase with no dispatcher configured fails loudly (retry → dead-letter → triage).
+        if (string.Equals(entitlement.Plan, "dedicated", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!dedicated.IsConfigured)
+            {
+                throw new InvalidOperationException(
+                    "A dedicated-tier subscription landed but Commerce:Dedicated is not configured.");
+            }
+
+            await dedicated.DispatchAsync(new DedicatedEnvironmentRequest(
+                Customer: Str(metadata, "slug") ?? throw new InvalidOperationException("dedicated checkout has no slug."),
+                Action: "apply",
+                Region: Str(metadata, "region"),
+                Size: Str(metadata, "size")), ct);
+            entitlement.UpdatedAt = DateTimeOffset.UtcNow;
+            return; // Status stays Provisioning; the environment's health, not the dispatch, makes it Active
+        }
 
         var result = await provisioning.ProvisionAsync(new ProvisionTenantCommand(
             Name: Str(metadata, "name") ?? "",

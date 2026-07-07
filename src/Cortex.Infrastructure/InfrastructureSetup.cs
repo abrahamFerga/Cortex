@@ -239,6 +239,8 @@ public static class InfrastructureSetup
         services.Configure<Cortex.Application.Commerce.CommerceOptions>(
             builder.Configuration.GetSection(Cortex.Application.Commerce.CommerceOptions.SectionName));
         services.AddScoped<Cortex.Application.Commerce.ITenantProvisioningService, Commerce.TenantProvisioningService>();
+        services.AddHttpClient(nameof(Commerce.GitHubDedicatedEnvironmentProvisioner));
+        services.AddSingleton<Cortex.Application.Commerce.IDedicatedEnvironmentProvisioner, Commerce.GitHubDedicatedEnvironmentProvisioner>();
         services.AddHostedService<Commerce.BillingEventProcessor>(); // no-ops unless commerce is enabled
         services.AddSingleton<ISkillCatalog, FileSkillCatalog>();
 
