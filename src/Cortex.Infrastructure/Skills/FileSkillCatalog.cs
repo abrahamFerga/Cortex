@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Cortex.Application.Modules;
 using Cortex.Application.Skills;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -14,16 +15,20 @@ namespace Cortex.Infrastructure.Skills;
 /// </summary>
 public sealed partial class FileSkillCatalog(
     IOptions<SkillsOptions> options,
+    IModuleCatalog modules,
     ILogger<FileSkillCatalog> logger) : ISkillCatalog
 {
-    private readonly Lazy<Dictionary<string, LoadedSkill>> _skills = new(() => Scan(options.Value, logger));
+    private readonly Lazy<Dictionary<string, LoadedSkill>> _skills = new(() => Scan(options.Value, modules, logger));
 
-    private sealed record LoadedSkill(string Name, string Description, string Instructions, string Directory);
+    /// <summary>ModuleId null = the global library; set = advertised only in that module's chat.</summary>
+    private sealed record LoadedSkill(string Name, string Description, string Instructions, string Directory, string? ModuleId);
 
-    public bool IsEnabled => options.Value.Enabled && _skills.Value.Count > 0;
+    // Module skills exist even when the global library is off, so Enabled alone doesn't decide.
+    public bool IsEnabled => _skills.Value.Count > 0;
 
-    public IReadOnlyList<SkillSummary> List() =>
+    public IReadOnlyList<SkillSummary> List(string? moduleId = null) =>
         _skills.Value.Values
+            .Where(s => s.ModuleId is null || string.Equals(s.ModuleId, moduleId, StringComparison.Ordinal))
             .OrderBy(s => s.Name, StringComparer.Ordinal)
             .Select(s => new SkillSummary(s.Name, s.Description))
             .ToList();
@@ -132,24 +137,38 @@ public sealed partial class FileSkillCatalog(
             : null; // traversal attempt — outside the skill bundle
     }
 
-    private static Dictionary<string, LoadedSkill> Scan(SkillsOptions opts, ILogger logger)
+    private static Dictionary<string, LoadedSkill> Scan(SkillsOptions opts, IModuleCatalog modules, ILogger logger)
     {
         var skills = new Dictionary<string, LoadedSkill>(StringComparer.Ordinal);
-        if (!opts.Enabled || string.IsNullOrWhiteSpace(opts.Path))
+
+        // The deployment's global library (Skills:Enabled + Skills:Path)…
+        if (opts.Enabled && !string.IsNullOrWhiteSpace(opts.Path))
         {
-            return skills;
+            ScanDirectory(opts.Path, moduleId: null, skills, logger);
         }
 
+        // …plus every module's own bundles (manifest SkillsPath), scoped to that module's chat.
+        // Both are deploy-time content shipped with the host — the tenant-upload ban holds.
+        foreach (var manifest in modules.Manifests.Where(m => !string.IsNullOrWhiteSpace(m.SkillsPath)))
+        {
+            ScanDirectory(manifest.SkillsPath!, manifest.Id, skills, logger);
+        }
+
+        return skills;
+    }
+
+    private static void ScanDirectory(string path, string? moduleId, Dictionary<string, LoadedSkill> skills, ILogger logger)
+    {
         // Relative paths resolve against the app base first (published layout), then the working
         // directory (dev runs where content root and cwd diverge).
-        var root = Path.IsPathRooted(opts.Path)
-            ? opts.Path
-            : new[] { Path.Combine(AppContext.BaseDirectory, opts.Path), Path.GetFullPath(opts.Path) }
-                .FirstOrDefault(Directory.Exists) ?? opts.Path;
+        var root = Path.IsPathRooted(path)
+            ? path
+            : new[] { Path.Combine(AppContext.BaseDirectory, path), Path.GetFullPath(path) }
+                .FirstOrDefault(Directory.Exists) ?? path;
         if (!Directory.Exists(root))
         {
-            logger.LogWarning("Skills:Enabled is true but the skills directory '{Path}' does not exist", root);
-            return skills;
+            logger.LogWarning("Skills directory '{Path}' does not exist", root);
+            return;
         }
 
         foreach (var dir in Directory.EnumerateDirectories(root))
@@ -175,15 +194,20 @@ public sealed partial class FileSkillCatalog(
                 continue;
             }
 
-            skills[name] = new LoadedSkill(name, description, body, dir);
+            if (skills.ContainsKey(name))
+            {
+                // Skill names are the load_skill lookup key, so they are global: first one wins.
+                logger.LogWarning("Skill '{Name}' at {Dir} skipped: the name is already taken", name, dir);
+                continue;
+            }
+
+            skills[name] = new LoadedSkill(name, description, body, dir, moduleId);
         }
 
         if (logger.IsEnabled(LogLevel.Information))
         {
-            logger.LogInformation("Loaded {Count} agent skill(s) from {Path}", skills.Count, root);
+            logger.LogInformation("Loaded agent skills from {Path}", root);
         }
-
-        return skills;
     }
 
     /// <summary>Minimal frontmatter parse: a leading <c>---</c> block with <c>name:</c> and <c>description:</c> lines.</summary>

@@ -175,6 +175,7 @@ export function AppShell({ moduleUi, branding }: AppShellProps = {}) {
                         moduleId={activeModuleId}
                         suggestedPrompts={activeModule?.suggestedPrompts}
                         agents={activeModule?.agents}
+                        skills={activeModule?.skills}
                       />
                     ) : (
                       <NoModulesNotice anyInstalled={(modules?.length ?? 0) > 0} />

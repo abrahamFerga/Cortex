@@ -1,5 +1,7 @@
+using Cortex.Application.Modules;
 using Cortex.Application.Skills;
 using Cortex.Infrastructure.Skills;
+using Cortex.Modules.Sdk;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -11,9 +13,21 @@ public sealed class SkillCatalogTests : IDisposable
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
-    private FileSkillCatalog NewCatalog() => new(
+    private FileSkillCatalog NewCatalog(params ModuleManifest[] modules) => new(
         Options.Create(new SkillsOptions { Enabled = true, Path = _root }),
+        new StubModuleCatalog(modules),
         NullLogger<FileSkillCatalog>.Instance);
+
+    private sealed class StubModuleCatalog(ModuleManifest[] manifests) : IModuleCatalog
+    {
+        public IReadOnlyList<ModuleManifest> Manifests => manifests;
+
+        public bool TryGetManifest(string moduleId, out ModuleManifest? manifest)
+        {
+            manifest = manifests.FirstOrDefault(m => m.Id == moduleId);
+            return manifest is not null;
+        }
+    }
 
     private void WriteSkill(string name, string frontmatterName, string description = "Does a thing. Use when testing.")
     {

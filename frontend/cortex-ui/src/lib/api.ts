@@ -81,6 +81,12 @@ export interface ModuleAgent {
   model?: string | null;
 }
 
+/** A skill invocable from the composer with "/name", from the module payload. */
+export interface ModuleSkill {
+  name: string;
+  description: string;
+}
+
 /** A module returned from GET /api/platform/modules. */
 export interface Module {
   id: string;
@@ -92,6 +98,8 @@ export interface Module {
   suggestedPrompts?: string[];
   /** Selectable agents for this module's chat (tenant profiles + module-shipped). */
   agents?: ModuleAgent[];
+  /** Skills invocable in this module's chat (global library + module-shipped). */
+  skills?: ModuleSkill[];
 }
 
 /** A chat conversation from GET /api/chat/conversations. */

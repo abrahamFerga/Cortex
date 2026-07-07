@@ -5,7 +5,7 @@ import {
   createAgentConnection,
   type AgentStreamEvent,
 } from "../lib/signalr";
-import { api, uploadFile, type ModuleAgent, type StoredFileInfo } from "../lib/api";
+import { api, uploadFile, type ModuleAgent, type ModuleSkill, type StoredFileInfo } from "../lib/api";
 import { messageId, runAgui } from "../lib/agui";
 import { parseAttachmentRefs, withAttachmentRefs } from "../lib/attachments";
 import { useInfo } from "../hooks/useInfo";
@@ -39,6 +39,8 @@ interface ChatPanelProps {
   suggestedPrompts?: string[];
   /** Selectable agents for this module (tenant profiles + module-shipped) — drives the agent picker. */
   agents?: ModuleAgent[];
+  /** Skills invocable by typing "/name" — drives the composer's slash autocomplete. */
+  skills?: ModuleSkill[];
   /** When set, resume this conversation (load its history); when undefined, a fresh conversation. */
   conversationId?: string;
   /** Called when a brand-new conversation gets its server id (so a parent can select/refresh the list). */
@@ -73,6 +75,7 @@ export function ChatPanel({
   transport = "agui",
   suggestedPrompts,
   agents,
+  skills,
   conversationId,
   onConversationStarted,
   onNewChat,
@@ -92,6 +95,14 @@ export function ChatPanel({
   const [model, setModel] = useState("");
   const queryClient = useQueryClient();
   const { data: info } = useInfo();
+
+  // "/tok" (no space yet) filters the module's skills, Claude-Code-style. Picking one completes
+  // the command; the server rewrites the slash turn into a load-and-follow instruction.
+  const slashPrefix = /^\/([\w-]*)$/.exec(input.trimEnd());
+  const slashMatches =
+    slashPrefix && (skills?.length ?? 0) > 0
+      ? skills!.filter((sk) => sk.name.toLowerCase().startsWith(slashPrefix[1].toLowerCase()))
+      : [];
 
   const connectionRef = useRef<HubConnection | null>(null);
   const conversationIdRef = useRef<string | undefined>(undefined);
@@ -701,6 +712,28 @@ export function ChatPanel({
                 ×
               </button>
             </span>
+          ))}
+        </div>
+      )}
+
+      {slashMatches.length > 0 && (
+        <div
+          aria-label="Skill suggestions"
+          className="mb-1.5 rounded-md border border-slate-200 bg-white p-1 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900"
+        >
+          {slashMatches.slice(0, 6).map((sk) => (
+            <button
+              key={sk.name}
+              type="button"
+              onClick={() => {
+                setInput(`/${sk.name} `);
+                textareaRef.current?.focus();
+              }}
+              className="focus-ring flex w-full items-baseline gap-2 rounded px-2 py-1 text-left hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              <span className="font-medium text-brand-600 dark:text-brand-400">/{sk.name}</span>
+              <span className="truncate text-xs text-slate-500 dark:text-slate-400">{sk.description}</span>
+            </button>
           ))}
         </div>
       )}

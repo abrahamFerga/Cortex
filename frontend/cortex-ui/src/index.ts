@@ -82,6 +82,7 @@ export type {
   AiSettings,
   AgentProfile,
   ModuleAgent,
+  ModuleSkill,
   NotificationInfo,
   NotificationSettings,
   UserConnector,

@@ -49,4 +49,12 @@ public sealed record ModuleManifest
     /// these specialize or retask it. Optional.
     /// </summary>
     public IReadOnlyList<AgentDescriptor> Agents { get; init; } = [];
+
+    /// <summary>
+    /// Optional directory of agent-skill bundles ({skill-name}/SKILL.md) this module ships,
+    /// resolved like the global <c>Skills:Path</c> (relative to the app base). Module skills are
+    /// advertised and slash-invocable ONLY in this module's chat; like all skills they are
+    /// deploy-time content shipped with the host — never tenant uploads.
+    /// </summary>
+    public string? SkillsPath { get; init; }
 }

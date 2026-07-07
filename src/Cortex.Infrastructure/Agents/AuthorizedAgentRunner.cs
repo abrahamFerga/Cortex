@@ -204,6 +204,22 @@ public sealed class AuthorizedAgentRunner(
             }
         }
 
+        // Slash invocation (Claude-Code-style): a message starting with /skill-name — matched
+        // against the skills ADVERTISED for this module — becomes an explicit load-and-follow
+        // instruction. Anything else starting with '/' passes through untouched.
+        var message = request.Message;
+        if (skillCatalog.IsEnabled && message.StartsWith('/') && message.Length > 1)
+        {
+            var parts = message[1..].Split(' ', 2, StringSplitOptions.TrimEntries);
+            var slashSkill = skillCatalog.List(request.ModuleId)
+                .FirstOrDefault(s => string.Equals(s.Name, parts[0], StringComparison.OrdinalIgnoreCase));
+            if (slashSkill is not null)
+            {
+                var rest = parts.Length > 1 && parts[1].Length > 0 ? parts[1] : "Apply it to this conversation now.";
+                message = $"Load the '{slashSkill.Name}' skill with load_skill and follow its instructions for this request: {rest}";
+            }
+        }
+
         // Tools marked side-effecting are blocked pending human approval — both the module
         // manifest's declarations and per-tool flags on platform/connector tools (connector fetch
         // tools and skill scripts carry the flag on the ModuleTool itself, not in a manifest).
@@ -219,7 +235,7 @@ public sealed class AuthorizedAgentRunner(
         // actually load them; the full instructions arrive via the load_skill tool on demand.
         if (skillCatalog.IsEnabled && toolsByName.ContainsKey("load_skill"))
         {
-            instructions = SkillAdvertisement.Append(instructions, skillCatalog.List());
+            instructions = SkillAdvertisement.Append(instructions, skillCatalog.List(request.ModuleId));
         }
 
         // Provenance: pin the exact instruction assembly this turn runs under. The snapshot store
@@ -244,10 +260,12 @@ public sealed class AuthorizedAgentRunner(
         // calls/results), persisted per conversation. Conversations from before session support — or
         // whose state fails to round-trip — fall back to seeding a fresh session with the replayed
         // user/assistant history, exactly the pre-session behaviour.
+        // The model gets the (possibly slash-rewritten) message; the transcript below persists what
+        // the user actually typed.
         var session = await ResumeSessionAsync(agent, conversation, cancellationToken);
         IReadOnlyList<ChatMessage> turnInput = session.Resumed
-            ? [new ChatMessage(ChatRole.User, request.Message)]
-            : BuildHistory(conversation, request.Message);
+            ? [new ChatMessage(ChatRole.User, message)]
+            : BuildHistory(conversation, message);
 
         var runOptions = new ChatClientAgentRunOptions(new ChatOptions
         {

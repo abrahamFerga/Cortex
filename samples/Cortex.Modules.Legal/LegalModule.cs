@@ -120,6 +120,9 @@ public sealed class LegalModule : IModule
                 ToolNames = ["add_deadline", "list_deadlines", "complete_deadline", "add_task", "list_tasks", "complete_task", "list_matters"],
             },
         ],
+        // The module's own skill bundles (skills/ in this project, copied to module-skills/legal
+        // in the host output) — advertised and slash-invocable only in Legal's chat.
+        SkillsPath = "module-skills/legal",
         Roles = ["legal:user", "legal:admin"],
         Tools =
         [

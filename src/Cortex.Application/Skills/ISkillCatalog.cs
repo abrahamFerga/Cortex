@@ -17,7 +17,11 @@ public interface ISkillCatalog
 {
     public bool IsEnabled { get; }
 
-    public IReadOnlyList<SkillSummary> List();
+    /// <summary>
+    /// The skills visible in a module's chat: the global library plus that module's own
+    /// (manifest <c>SkillsPath</c>) bundles. Null lists the global library only.
+    /// </summary>
+    public IReadOnlyList<SkillSummary> List(string? moduleId = null);
 
     /// <summary>The skill's full instruction body, or null when no such skill exists.</summary>
     public string? GetInstructions(string skillName);

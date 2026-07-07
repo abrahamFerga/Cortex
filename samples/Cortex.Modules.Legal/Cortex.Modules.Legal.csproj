@@ -17,4 +17,9 @@
     <ProjectReference Include="..\..\src\Cortex.Modules.Sdk\Cortex.Modules.Sdk.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Module-shipped agent skills: copied into the HOST's output under module-skills/legal,
+         which the manifest's SkillsPath points at — deploy-time content, never tenant uploads. -->
+    <Content Include="skills/**" CopyToOutputDirectory="PreserveNewest" TargetPath="module-skills/legal/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

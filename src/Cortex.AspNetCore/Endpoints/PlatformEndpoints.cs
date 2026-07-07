@@ -1,6 +1,7 @@
 using Cortex.Application.Ai;
 using Cortex.Application.Files;
 using Cortex.Application.Modules;
+using Cortex.Application.Skills;
 using Cortex.Core.Identity;
 using Cortex.Modules.Sdk;
 using Microsoft.Extensions.Options;
@@ -19,7 +20,7 @@ public static class PlatformEndpoints
 
         group.MapGet("/modules", async (
             IModuleCatalog catalog, ITenantModuleStore moduleStore, ICurrentUser user,
-            Cortex.Infrastructure.Persistence.PlatformDbContext db, CancellationToken ct) =>
+            Cortex.Infrastructure.Persistence.PlatformDbContext db, ISkillCatalog skills, CancellationToken ct) =>
         {
             // A module is visible unless a tenant admin has explicitly disabled it for this tenant (default-on).
             var disabled = await moduleStore.GetDisabledModuleIdsAsync(ct);
@@ -31,7 +32,7 @@ public static class PlatformEndpoints
 
             var modules = catalog.Manifests
                 .Where(m => !disabled.Contains(m.Id))
-                .Select(m => ToDto(m, user, profiles.Where(p => p.ModuleId == m.Id)))
+                .Select(m => ToDto(m, user, profiles.Where(p => p.ModuleId == m.Id), skills.List(m.Id)))
                 .ToList();
             return Results.Ok(modules);
         })
@@ -62,7 +63,8 @@ public static class PlatformEndpoints
     }
 
     private static ModuleDto ToDto(
-        ModuleManifest manifest, ICurrentUser user, IEnumerable<Cortex.Core.Platform.AgentProfile> tenantProfiles)
+        ModuleManifest manifest, ICurrentUser user, IEnumerable<Cortex.Core.Platform.AgentProfile> tenantProfiles,
+        IReadOnlyList<SkillSummary> skills)
     {
         // The agent picker's entries: tenant profiles first (they win a name collision), then
         // manifest agents not overridden. When a tenant profile is the default, no manifest agent
@@ -95,12 +97,17 @@ public static class PlatformEndpoints
 
         return new ModuleDto(
             manifest.Id, manifest.DisplayName, manifest.Description, manifest.Icon, tabs,
-            manifest.SuggestedPrompts.ToArray(), agents);
+            manifest.SuggestedPrompts.ToArray(), agents,
+            // Slash-invocable in this module's chat: the global library + the module's own bundles.
+            skills.Select(s => new ModuleSkillDto(s.Name, s.Description)).ToArray());
     }
 
     private sealed record ModuleDto(
         string Id, string DisplayName, string? Description, string? Icon, TabDto[] Tabs, string[] SuggestedPrompts,
-        ModuleAgentDto[] Agents);
+        ModuleAgentDto[] Agents, ModuleSkillDto[] Skills);
+
+    /// <summary>A skill the composer's "/" autocomplete offers for this module.</summary>
+    private sealed record ModuleSkillDto(string Name, string Description);
 
     /// <summary>An entry in the chat's agent picker: a tenant profile or a module-shipped agent.</summary>
     private sealed record ModuleAgentDto(string Name, string? Description, bool IsDefault, string? Model);
