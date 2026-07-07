@@ -74,7 +74,8 @@ jobs:
             .
 
       - name: Trivy image scan (fail on CRITICAL/HIGH)
-        uses: aquasecurity/trivy-action@0.28.0
+        # Version tags gained a "v" prefix; the old bare 0.x tags no longer resolve.
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: cortex-api:${{ github.sha }}
