@@ -41,6 +41,9 @@ builder.AddCortexConnector<MsGraphConnector>();
 builder.AddCortexConnector<GoogleDriveConnector>();
 builder.AddCortexConnector<S3Connector>();
 builder.AddCortexConnector<DocumensoConnector>(); // e-signature: hosted or self-hosted, API-token auth
+// A connector DEFINED BY THIS HOST (Cortex.Sample.Host assembly), not shipped in Cortex.Connectors —
+// proves a domain system can add its own connector. Networthy owns its Plaid connector the same way.
+builder.AddCortexConnector<HostDefinedCrmConnector>();
 
 // What this host SELLS (docs/COMMERCIALIZATION.md): the plan — not checkout metadata — decides
 // what a purchase grants. The sample sells the Legal vertical in the three standard tiers.
