@@ -11,6 +11,9 @@ import react from "@vitejs/plugin-react";
 export default defineConfig(({ mode }) => {
   const appBuild = mode === "app";
 
+  // Default the brand so index.html's %VITE_BRAND_NAME% never renders as a literal placeholder.
+  process.env.VITE_BRAND_NAME ??= "Cortex";
+
   return {
     plugins: [react()],
 
