@@ -1,15 +1,24 @@
 # =============================================================================
-# publish.yml — Publish the Cortex platform packages to GitHub Packages.
+# publish.yml — Publish the Cortex platform artifacts.
 # -----------------------------------------------------------------------------
 # Runs when a GitHub Release is published (the tag drives the version), or on a
-# manual dispatch with an explicit version. Packs the six packable libraries and
-# pushes them to the repo's GitHub Packages NuGet feed, so downstream products can
-# `dotnet add package Cortex.*` instead of forking. The local pack+consume path is
-# already proven on every CI run by eng/verify-packaging.sh (see ci.yml).
+# manual dispatch with an explicit version. Two distribution channels:
 #
-# Consuming the published feed from another repo (one-time):
-#   dotnet nuget add source https://nuget.pkg.github.com/<OWNER>/index.json \
-#     --name cortex --username <user> --password <a PAT with read:packages>
+#  1. GitHub Release ASSETS (release trigger only) — the nupkgs plus the two
+#     prebuilt UI bundles (@cortex/ui app shell, @cortex/admin-ui). Assets are
+#     ANONYMOUSLY downloadable, so a product repo can vendor its .packages/ and
+#     wwwroot/ from a release URL with no checkout, no PAT, no registry. The UI
+#     bundles are brand-agnostic: the shell resolves the product name at runtime
+#     from /api/platform/branding (Branding:ProductName in the host's config).
+#
+#  2. GitHub Packages NuGet feed — for authenticated `dotnet add package` consumers.
+#     (GitHub Packages requires a read:packages PAT even for public repos, which is
+#     why the release assets above are the primary channel.)
+#       dotnet nuget add source https://nuget.pkg.github.com/<OWNER>/index.json \
+#         --name cortex --username <user> --password <a PAT with read:packages>
+#
+# The local pack+consume path is already proven on every CI run by
+# eng/verify-packaging.sh (see ci.yml).
 # =============================================================================
 
 name: Publish packages
@@ -24,9 +33,10 @@ on:
         type: string
         required: true
 
-# GITHUB_TOKEN needs package-write to push to GitHub Packages.
+# GITHUB_TOKEN needs package-write for GitHub Packages and contents-write to
+# attach assets to the release.
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 concurrency:
@@ -75,3 +85,39 @@ jobs:
             --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
             --api-key "${{ secrets.GITHUB_TOKEN }}" \
             --skip-duplicate
+
+      # ------------------------------------------------------------------------
+      # Prebuilt UI bundles — brand-agnostic (runtime branding) + same-origin API
+      # (VITE_API_BASE=""), so any product host serves them from wwwroot/ as-is.
+      # ------------------------------------------------------------------------
+      - name: Setup pnpm
+        if: github.event_name == 'release'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - name: Setup Node
+        if: github.event_name == 'release'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Build UI bundles
+        if: github.event_name == 'release'
+        env:
+          VITE_API_BASE: ""
+        run: |
+          pnpm -C frontend install --frozen-lockfile
+          pnpm -C frontend/cortex-ui build:app
+          pnpm -C frontend/admin-ui build
+          (cd frontend/cortex-ui/dist-app && zip -r "$GITHUB_WORKSPACE/artifacts/cortex-ui-app.zip" .)
+          (cd frontend/admin-ui/dist && zip -r "$GITHUB_WORKSPACE/artifacts/cortex-admin-ui.zip" .)
+
+      - name: Attach artifacts to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "$GITHUB_REF_NAME" ./artifacts/*.nupkg ./artifacts/*.zip --clobber

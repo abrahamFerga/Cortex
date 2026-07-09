@@ -66,18 +66,31 @@ app.Run();
 
 ## Shipping the web UI (no npm registry needed)
 
-The `@cortex/*` frontend packages don't need a registry to reach production. Build them with
-your product's identity baked in and drop the outputs into the host — the API serves the SPA
-itself, same origin, no CORS, no asset host:
+The `@cortex/*` frontend packages don't need a registry to reach production. The API serves
+the SPA itself, same origin, no CORS, no asset host — and the shell asks the host who it is at
+runtime, so the bundles are **brand-agnostic**:
 
-1. `VITE_BRAND_NAME=YourProduct VITE_API_BASE= pnpm -C frontend/cortex-ui build` → copy
-   `dist/` to your host's `wwwroot/app` (served at `/`, with an `index.html` fallback for
-   client-side deep links; `/api`, `/admin`, `/hubs`, health, and OpenAPI are never shadowed).
+**Preferred — download from a Cortex release (no checkout, no pnpm):** every GitHub Release
+attaches `cortex-ui-app.zip` and `cortex-admin-ui.zip` (built with a same-origin API base),
+plus all the nupkgs. Unzip into your host's `wwwroot/app` and `wwwroot/admin`, set your name in
+configuration, done:
+
+```jsonc
+// appsettings.json
+"Branding": { "ProductName": "YourProduct" }   // → /api/platform/branding → top bar + tab title
+```
+
+**Alternative — build from a checkout** (when you're changing the frontend itself):
+
+1. `VITE_API_BASE= pnpm -C frontend/cortex-ui build:app` → copy `dist-app/` to `wwwroot/app`
+   (served at `/`, with an `index.html` fallback for client-side deep links; `/api`, `/admin`,
+   `/hubs`, health, and OpenAPI are never shadowed). `VITE_BRAND_NAME` still works as a
+   build-time bake, but runtime `Branding:ProductName` supersedes it.
 2. `pnpm -C frontend/admin-ui build` → copy `dist/` to `wwwroot/admin` (served at `/admin`).
 
 Both mounts are no-ops when the directories are absent, so an API-only host and the dev-time
 Vite servers (which the sample AppHosts launch with hot reload) keep working unchanged. See
-casewell's `scripts/build-ui.ps1` for a worked one-command version.
+casewell's `scripts/build-ui.ps1` for a worked one-command version of the checkout path.
 
 ## What's deliberately NOT extensible (yet)
 
