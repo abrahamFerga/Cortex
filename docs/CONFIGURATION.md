@@ -125,6 +125,31 @@ failed start or chat turn.
 }
 ```
 
+### Product identity (Branding)
+
+The shell asks the host who it is at runtime — one prebuilt UI bundle serves every product:
+
+```jsonc
+// appsettings.json (not a secret)
+"Branding": { "ProductName": "Networthy" }   // -> GET /api/platform/branding -> top bar + tab title
+```
+
+### Billing (Commerce) — off by default
+
+A deployment that doesn't sell subscriptions has no webhook surface at all. Selling turns on via
+the `Commerce` section (secrets via user-secrets/Key Vault, never appsettings): `Enabled`,
+`WebhookSecret` (SECRET), `StripeApiKey` (SECRET), `Prices:{product}:{plan}` -> Stripe Price ids,
+`CheckoutSuccessUrl`/`CheckoutCancelUrl`, and `Dedicated:{Owner,Repo,Workflow,Token(SECRET)}` for
+the dedicated-environment tier. The flow (checkout -> signed webhook -> durable inbox -> one-
+transaction tenant provisioning) is platform machinery; a product only declares its
+`ProductOffering` in the host. See a worked operator checklist in networthy's `docs/HOSTED.md`.
+
+### First-run setup wizard (Onboarding)
+
+Declared per module in the manifest (`ModuleManifest.Onboarding`): a probe endpoint ("do I have
+data yet?"), a permission, and info/form/upload steps. No host configuration — the shell renders
+the wizard and offers it via a dismissible banner while the probe returns an empty array.
+
 ## Where runtime configuration lives (admin console, per tenant)
 
 Everything below is stored in the database, editable at `/admin` without a deploy, and RBAC-gated:
