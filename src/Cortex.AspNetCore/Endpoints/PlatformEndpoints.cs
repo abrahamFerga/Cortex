@@ -103,7 +103,7 @@ public static class PlatformEndpoints
                 t.Editor is { } e && user.HasPermission(e.Permission)
                     ? new TabEditorDto(
                         e.UpsertEndpoint, e.DeleteEndpoint, e.KeyField,
-                        e.Fields.Select(f => new TabEditorFieldDto(f.Field, f.Label, f.Multiline, f.Required, f.Numeric)).ToArray())
+                        e.Fields.Select(ToFieldDto).ToArray())
                     : null,
                 t.DetailEndpoint,
                 t.Chart is { } chart
@@ -122,7 +122,7 @@ public static class PlatformEndpoints
                 setup.ProbeEndpoint, setup.Title,
                 setup.Steps.Select(s => new OnboardingStepDto(
                     s.Id, s.Title, s.Blurb, s.Kind, s.Endpoint,
-                    s.Fields.Select(f => new TabEditorFieldDto(f.Field, f.Label, f.Multiline, f.Required, f.Numeric)).ToArray(),
+                    s.Fields.Select(ToFieldDto).ToArray(),
                     s.Preset.Count > 0 ? new Dictionary<string, string>(s.Preset) : null,
                     s.FileIdField, s.Accept, s.Optional)).ToArray())
             : null;
@@ -163,7 +163,13 @@ public static class PlatformEndpoints
 
     private sealed record TabEditorDto(string UpsertEndpoint, string? DeleteEndpoint, string? KeyField, TabEditorFieldDto[] Fields);
 
-    private sealed record TabEditorFieldDto(string Field, string Label, bool Multiline, bool Required, bool Numeric);
+    private static TabEditorFieldDto ToFieldDto(TabEditorField f) => new(
+        f.Field, f.Label, f.Multiline, f.Required, f.Numeric,
+        f.Options?.ToArray(), f.OptionsEndpoint, f.OptionsField);
+
+    private sealed record TabEditorFieldDto(
+        string Field, string Label, bool Multiline, bool Required, bool Numeric,
+        string[]? Options, string? OptionsEndpoint, string? OptionsField);
 
     private sealed record MeDto(Guid? UserId, string? DisplayName, Guid? TenantId, string[] Permissions);
 

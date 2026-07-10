@@ -11,15 +11,13 @@ import {
   type TabEditor,
 } from "../lib/api";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { FieldInput } from "./FieldInput";
 import { TabChartView } from "./TabChart";
 
 interface GenericTabProps {
   tab: ModuleTab;
   children?: React.ReactNode;
 }
-
-const inputClass =
-  "w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800";
 
 /** Substitute the `{field}` placeholder in an endpoint template from the row's values. */
 function resolveRowUrl(template: string, row: Record<string, unknown>): string {
@@ -151,26 +149,13 @@ function EditorForm({
           <label htmlFor={`editor-${f.field}`} className="block text-sm font-medium text-slate-700 dark:text-slate-200">
             {f.label}
           </label>
-          {f.multiline ? (
-            <textarea
-              id={`editor-${f.field}`}
-              rows={4}
-              value={values[f.field]}
-              onChange={(e) => setValues((v) => ({ ...v, [f.field]: e.target.value }))}
-              className={inputClass}
-            />
-          ) : (
-            <input
-              id={`editor-${f.field}`}
-              type={f.numeric ? "number" : "text"}
-              inputMode={f.numeric ? "decimal" : undefined}
-              step={f.numeric ? "any" : undefined}
-              value={values[f.field]}
-              disabled={initial !== null && editor.keyField === f.field}
-              onChange={(e) => setValues((v) => ({ ...v, [f.field]: e.target.value }))}
-              className={inputClass}
-            />
-          )}
+          <FieldInput
+            id={`editor-${f.field}`}
+            field={f}
+            value={values[f.field]}
+            disabled={initial !== null && editor.keyField === f.field}
+            onChange={(value) => setValues((v) => ({ ...v, [f.field]: value }))}
+          />
         </div>
       ))}
 

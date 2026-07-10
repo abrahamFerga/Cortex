@@ -11,8 +11,20 @@ public sealed record TabColumn(string Field, string Header);
 /// A field in a tab's generic editor form: which row/body property, its label, and its shape.
 /// <paramref name="Numeric"/> makes the shell render a number input and post a JSON number, so
 /// endpoints binding <c>decimal</c>/<c>int</c> properties work without string-parsing shims.
+/// A field whose valid values are KNOWN should say so — the shell renders a select instead of a
+/// free-text guessing game: <paramref name="Options"/> for a fixed vocabulary (directions,
+/// cadences), or <paramref name="OptionsEndpoint"/> + <paramref name="OptionsField"/> to draw
+/// the choices from live data (account names from <c>/api/finance/accounts</c>'s <c>name</c>).
 /// </summary>
-public sealed record TabEditorField(string Field, string Label, bool Multiline = false, bool Required = true, bool Numeric = false);
+public sealed record TabEditorField(
+    string Field,
+    string Label,
+    bool Multiline = false,
+    bool Required = true,
+    bool Numeric = false,
+    IReadOnlyList<string>? Options = null,
+    string? OptionsEndpoint = null,
+    string? OptionsField = null);
 
 /// <summary>
 /// Optional mutation affordances for a server-driven tab: when declared, the shell's generic table
