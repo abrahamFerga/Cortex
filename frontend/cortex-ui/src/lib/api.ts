@@ -12,6 +12,8 @@ export interface Me {
 export interface TabColumn {
   field: string;
   header: string;
+  /** PII-grade value (account number, token): render masked behind a per-cell reveal toggle. */
+  masked?: boolean;
 }
 
 /** A field in a tab's generic editor form. */
@@ -28,6 +30,8 @@ export interface TabEditorField {
   optionsEndpoint?: string | null;
   /** …and offer each row's this field as an option (e.g. "name"). */
   optionsField?: string | null;
+  /** PII-grade value: the input renders password-style behind a reveal toggle while typing. */
+  masked?: boolean;
 }
 
 /**
@@ -222,6 +226,13 @@ export interface PendingApproval {
   argumentsJson?: string;
   userDisplay?: string;
   createdAt: string;
+  /**
+   * Review ceremony, from the declaring tool: "low" renders a compact one-tap confirm,
+   * "high" (and anything unresolvable) the full review card. A hint, never a gate.
+   */
+  risk?: "low" | "high";
+  /** The declaring tool's human description, when it has one — friendlier than the tool name. */
+  description?: string | null;
 }
 
 // ── Admin / security dashboard shapes ────────────────────────────────────────

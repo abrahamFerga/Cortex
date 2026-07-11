@@ -37,6 +37,22 @@ public static class AuthSetup
                     NameClaimType = "name",
                     RoleClaimType = "roles",
                 };
+                if (auth.RequireMfa)
+                {
+                    // MFA enrollment lives at the IdP; this is the platform-side backstop that a
+                    // token minted WITHOUT it never authenticates, however the IdP is configured.
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnTokenValidated = context =>
+                        {
+                            if (context.Principal is null || !MfaEnforcement.SatisfiesMfa(context.Principal, auth))
+                            {
+                                context.Fail("Token was not issued with multi-factor authentication (no accepted amr value).");
+                            }
+                            return Task.CompletedTask;
+                        },
+                    };
+                }
             });
         }
         else if (environment.IsDevelopment())

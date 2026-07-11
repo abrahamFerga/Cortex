@@ -83,30 +83,48 @@ consuming product's assumptions:
   are static emerald/amber/red Tailwind classes with `dark:` variants (the idiom
   `PendingApprovals` and the chart palette already use), not new CSS variables — status
   semantics are universal, unlike the brand accent, so rebrandability would be a bug.
-- [ ] **Phase 3 — `GenericTab` mobile card-mode**: below a breakpoint, each row renders as a
+- [x] **Phase 3 — `GenericTab` mobile card-mode**: below a breakpoint, each row renders as a
   card (the row's designated title field as the card header, a few key fields visible, the rest
   revealed on tap) instead of a horizontally-scrolling table. Ships in the one shared component
-  so every product's tabs gain this for free, not just the ones that ask.
-- [ ] **Phase 4 — Masked-value rendering**: a `masked` hint on a `TabDescriptor` field (reusing
-  the existing `[Pii]` intent, not inventing a parallel flag) renders as `••••1234` in
-  `GenericTab` with a per-field, per-session reveal-on-click toggle; `FieldInput` gains the same
-  display mode for form contexts. No new entity, no server change beyond exposing the hint —
-  the underlying value was already flowing to the client.
-- [ ] **Phase 5 — Risk-tiered, explainable `PendingApprovals`**: a module-declared risk hint on
-  `ModuleTool` (`ApprovalRisk: low | high`, defaulting to `high` so nothing silently downgrades)
-  changes rendering — low-risk items collapse to a compact one-tap-confirm row, high-risk items
-  keep today's fuller card plus two additions: an optional module-supplied `reasoning` string
-  ("based on 12 past transactions matching this merchant") and a diff view when the tool call
-  carries before/after values. Every AI-originated record already visible in the audit log gains
-  a small "AI" badge with a link to its audit entry. Extend the existing audit-log query/export
-  with an explicit disclosure view (what was auto-suggested, what a human changed, what a human
-  approved as-is) — the concrete ask behind Networthy's "ADMT-readiness" differentiator, but
-  generically useful to any product operating under an automated-decision-disclosure regime.
-- [ ] **Phase 6 — Two-factor / passkey authentication**: TOTP enrollment + login step and
-  WebAuthn/passkey registration + login, recovery codes for lost-factor recovery, admin-assisted
-  reset for a locked-out user. Lands in `AddCortexAuthentication`, inherited by every product
-  the same way OIDC already is — no product-specific auth code.
+  so every product's tabs gain this for free, not just the ones that ask. Delivered: a
+  `useMediaQuery` hook (matchMedia-backed, non-matching where absent — jsdom/SSR fall back to
+  the wide layout) switches at Tailwind's `md`, the same threshold the sidebar drawer uses;
+  first column = card title, next two visible, the rest behind a native `details` disclosure;
+  row affordances ride along via a shared `RowButtons` extraction. One layout in the DOM at a
+  time — no duplicate content for screen readers, no double fetch.
+- [x] **Phase 4 — Masked-value rendering**: a `Masked` hint on `TabColumn` and `TabEditorField`
+  (the display-side companion of the `[Pii]` intent) renders as `••••1234` in `GenericTab`
+  (table and both card layouts, via one shared `CellValue`) behind a per-cell, per-mount reveal
+  toggle; short values mask fully; `FieldInput` types password-style with a Show/Hide toggle.
+  No new entity — the underlying value was already flowing to an authorized caller; masking is
+  screen privacy, not access control.
+- [x] **Phase 5 — Risk-tiered, explainable `PendingApprovals`** *(risk tiers + explanations
+  shipped; the disclosure view moved to Phase 7 — see below)*: `ModuleTool.Risk`
+  (`ApprovalRisk`, `High` default so nothing silently downgrades), resolved from the declaring
+  tool at read time — the declaration stays the living source of truth, no data migration, and
+  an unresolvable tool fails safe to full ceremony. Low-risk items collapse to a compact
+  one-tap-confirm row; high-risk items keep the full card plus two conventions read from the
+  recorded arguments: `reasoning` (the agent's stated why, rendered as prose) and a
+  `before`/`after` object pair (rendered as a field-by-field diff). Conventions cost a module
+  nothing to adopt: declare the parameter, the agent fills it, the card explains itself.
+- [x] **Phase 6 — MFA enforcement (the honest version of "2FA/passkey")**: the original phase
+  text assumed a platform credential store; verifying `AddCortexAuthentication` showed there is
+  none — production auth is JWT bearer from an external IdP (Entra External ID; Keycloak et al.
+  for self-hosters), dev is header-based, anything else fails fast at startup. TOTP/passkey
+  *enrollment* therefore belongs to the IdP, which supports it natively, and building a parallel
+  WebAuthn stack here would be a second auth system — an anti-feature. What the platform *can*
+  own is delivered instead: `Auth:RequireMfa` rejects any validated token whose `amr` claim
+  carries no accepted MFA marker (`Auth:MfaAmrValues`, defaults spanning Entra's mfa/ngcmfa,
+  fido, otp, hwk; both amr wire shapes handled), so an IdP misconfiguration can't silently admit
+  single-factor sessions. Pure, unit-tested judgment (`MfaEnforcement`) + a SECURITY.md
+  hardening note. Products wanting "2FA" turn it on at their IdP and set the flag.
 - [ ] **Phase 7 — New ideas backlog** (grow as they land):
+  - [ ] **ADMT disclosure view over the audit log** (moved from Phase 5's tail): extend the
+    existing audit-log query/export with an explicit automated-decision view — what was
+    AI-suggested, what a human changed, what a human approved as-is — plus an "AI" badge on
+    AI-originated records linking to their audit entry. The concrete ask behind Networthy's
+    ADMT-readiness differentiator, generically useful to any product under an
+    automated-decision-disclosure regime.
   - [ ] **Self-service personal access tokens**: a platform `ApiKey` entity (hashed at rest,
     scopes, `LastUsedAt`, revoke), a token-based `AuthenticationHandler` alongside the existing
     dev-auth/OIDC handlers, and — the part that actually matters — confirmation that a

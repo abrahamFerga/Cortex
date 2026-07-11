@@ -18,7 +18,7 @@ internal static class TabDtoMapper
             .OrderBy(t => t.Order)
             .Select(t => new TabDto(
                 t.Id, t.Label, t.Route, t.Icon, t.DataEndpoint,
-                t.Columns.Select(c => new TabColumnDto(c.Field, c.Header)).ToArray(),
+                t.Columns.Select(c => new TabColumnDto(c.Field, c.Header, c.Masked)).ToArray(),
                 t.Placeholder,
                 // The editor ships only to callers holding its permission, so the payload never
                 // advertises affordances the user can't use (the endpoints stay gated regardless).
@@ -44,7 +44,7 @@ internal static class TabDtoMapper
 
     internal static TabEditorFieldDto ToFieldDto(TabEditorField f) => new(
         f.Field, f.Label, f.Multiline, f.Required, f.Numeric,
-        f.Options?.ToArray(), f.OptionsEndpoint, f.OptionsField);
+        f.Options?.ToArray(), f.OptionsEndpoint, f.OptionsField, f.Masked);
 
     // The wire keeps the kind a lowercase string literal (the shell switches on it), not an
     // enum ordinal — adding a kind must never renumber what existing clients see.
@@ -66,10 +66,10 @@ internal sealed record TabActionDto(string Id, string Label, string Endpoint, st
 
 internal sealed record TabRowActionDto(string Id, string Label, string EndpointTemplate, string? Confirm);
 
-internal sealed record TabColumnDto(string Field, string Header);
+internal sealed record TabColumnDto(string Field, string Header, bool Masked);
 
 internal sealed record TabEditorDto(string UpsertEndpoint, string? DeleteEndpoint, string? KeyField, TabEditorFieldDto[] Fields);
 
 internal sealed record TabEditorFieldDto(
     string Field, string Label, bool Multiline, bool Required, bool Numeric,
-    string[]? Options, string? OptionsEndpoint, string? OptionsField);
+    string[]? Options, string? OptionsEndpoint, string? OptionsField, bool Masked);

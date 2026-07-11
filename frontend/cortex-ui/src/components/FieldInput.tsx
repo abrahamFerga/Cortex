@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet, type TabEditorField } from "../lib/api";
 
@@ -21,6 +22,7 @@ interface FieldInputProps {
 }
 
 export function FieldInput({ id, field, value, disabled, onChange }: FieldInputProps) {
+  const [revealed, setRevealed] = useState(false);
   const dynamic = useQuery({
     queryKey: ["field-options", field.optionsEndpoint, field.optionsField],
     queryFn: () => apiGet<Record<string, unknown>[]>(field.optionsEndpoint!),
@@ -67,6 +69,32 @@ export function FieldInput({ id, field, value, disabled, onChange }: FieldInputP
   if (field.multiline) {
     return (
       <textarea id={id} rows={3} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={fieldInputClass} />
+    );
+  }
+
+  // Masked (PII-grade) fields type password-style behind an explicit reveal — same intent as the
+  // table's masked columns, applied while the value is being entered.
+  if (field.masked && !field.numeric) {
+    return (
+      <div className="flex gap-1">
+        <input
+          id={id}
+          type={revealed ? "text" : "password"}
+          value={value}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+          className={fieldInputClass}
+        />
+        <button
+          type="button"
+          onClick={() => setRevealed((v) => !v)}
+          aria-pressed={revealed}
+          aria-label={`${revealed ? "Hide" : "Reveal"} ${field.label}`}
+          className="focus-ring shrink-0 rounded border border-slate-300 px-2 text-xs font-medium text-slate-600 dark:border-slate-600 dark:text-slate-300"
+        >
+          {revealed ? "Hide" : "Show"}
+        </button>
+      </div>
     );
   }
 

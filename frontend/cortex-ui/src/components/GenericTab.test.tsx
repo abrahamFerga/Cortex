@@ -308,6 +308,43 @@ describe("GenericTab (server-driven table)", () => {
     });
   });
 
+  it("masked columns render bullets with the last four characters, revealing only on demand", async () => {
+    renderTab(
+      {
+        ...foodsTab,
+        columns: [
+          { field: "name", header: "Account" },
+          { field: "number", header: "Number", masked: true },
+        ],
+      },
+      [{ name: "Everyday checking", number: "12345678" }],
+    );
+
+    await screen.findByText("Everyday checking");
+    // The raw value is not in the document — only the masked form.
+    expect(screen.queryByText("12345678")).toBeNull();
+    expect(screen.getByText("••••5678")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reveal Number" }));
+    expect(screen.getByText("12345678")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide Number" }));
+    expect(screen.queryByText("12345678")).toBeNull();
+  });
+
+  it("masks short values entirely — four bullets leak nothing", async () => {
+    renderTab(
+      {
+        ...foodsTab,
+        columns: [{ field: "pin", header: "PIN", masked: true }],
+      },
+      [{ pin: "1234" }],
+    );
+
+    expect(await screen.findByText("••••")).toBeTruthy();
+    expect(screen.queryByText("1234")).toBeNull();
+  });
+
   it("with an editor: Edit prefills from the row and locks the key field; Delete DELETEs the resolved URL", async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       void input;

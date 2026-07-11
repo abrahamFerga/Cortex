@@ -60,4 +60,30 @@ describe("FieldInput", () => {
     expect(screen.queryByRole("combobox")).toBeNull();
     expect(screen.getByRole("textbox")).toBeTruthy();
   });
+
+  it("masked fields type password-style until explicitly revealed", () => {
+    const { container } = renderFieldWithResult({ field: "accountNumber", label: "Account number", masked: true });
+
+    const input = container.querySelector("input")!;
+    expect(input.type).toBe("password");
+
+    fireEvent.click(screen.getByRole("button", { name: "Reveal Account number" }));
+    expect(input.type).toBe("text");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide Account number" }));
+    expect(input.type).toBe("password");
+  });
 });
+
+function renderFieldWithResult(field: TabEditorField) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve([]) } as unknown as Response),
+  );
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <FieldInput id="f" field={field} value="" onChange={vi.fn()} />
+    </QueryClientProvider>,
+  );
+}

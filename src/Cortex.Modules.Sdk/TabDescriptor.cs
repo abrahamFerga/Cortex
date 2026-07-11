@@ -4,8 +4,15 @@ namespace Cortex.Modules.Sdk;
 // endpoint's JSON — which the host serializes camelCase — so declare them camelCase
 // ("monthlyLimit"), even though the C# property they came from is PascalCase.
 
-/// <summary>A column in a tab's server-driven data view: which row field to show, and its header.</summary>
-public sealed record TabColumn(string Field, string Header);
+/// <summary>
+/// A column in a tab's server-driven data view: which row field to show, and its header.
+/// <paramref name="Masked"/> is the display-side companion of the <c>[Pii]</c> attribute: declare
+/// it on columns carrying account numbers, tokens, or similar — the shell renders the value
+/// masked (last four characters showing) behind an explicit per-cell reveal toggle. Masking is a
+/// screen-privacy affordance, not access control: the caller was already authorized to read the
+/// value, it just shouldn't sit exposed on a shared or shoulder-surfable screen.
+/// </summary>
+public sealed record TabColumn(string Field, string Header, bool Masked = false);
 
 /// <summary>
 /// A field in a tab's generic editor form: which row/body property, its label, and its shape.
@@ -24,7 +31,8 @@ public sealed record TabEditorField(
     bool Numeric = false,
     IReadOnlyList<string>? Options = null,
     string? OptionsEndpoint = null,
-    string? OptionsField = null);
+    string? OptionsField = null,
+    bool Masked = false);
 
 /// <summary>
 /// Optional mutation affordances for a server-driven tab: when declared, the shell's generic table

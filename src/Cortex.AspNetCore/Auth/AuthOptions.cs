@@ -16,5 +16,21 @@ public sealed class AuthOptions
     /// <summary>Claim whose value identifies the Cortex tenant (matched against <c>Tenant.Slug</c>).</summary>
     public string TenantClaim { get; set; } = "tenant";
 
+    /// <summary>
+    /// Reject tokens that were not issued after multi-factor authentication (judged by the token's
+    /// <c>amr</c> claim against <see cref="MfaAmrValues"/>). Cortex deliberately has no credential
+    /// store — enrollment of TOTP/passkeys happens at the IdP (Entra External ID, Keycloak, …);
+    /// this switch is the platform-side backstop so a misconfigured IdP can't silently admit
+    /// single-factor sessions. Applies only to JWT bearer auth; the Development-only dev-auth
+    /// fallback is unaffected.
+    /// </summary>
+    public bool RequireMfa { get; set; }
+
+    /// <summary>
+    /// <c>amr</c> values accepted as proof of MFA. Defaults cover Entra's markers (mfa, ngcmfa),
+    /// FIDO2/passkeys (fido), one-time codes (otp), and hardware keys (hwk).
+    /// </summary>
+    public string[] MfaAmrValues { get; set; } = ["mfa", "ngcmfa", "fido", "otp", "hwk"];
+
     public bool IsConfigured => !string.IsNullOrWhiteSpace(Authority);
 }

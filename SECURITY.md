@@ -53,6 +53,11 @@ before deploying.
 - Configure Entra External ID. The dev-auth fallback is inert outside Development, so you **must** set
   `Auth:Authority` in production to activate the JWT scheme — without it the host has no usable
   authentication scheme and cannot serve requests.
+- **Multi-factor authentication** is enrolled and enforced at your IdP (Entra External ID user
+  flows, Keycloak/Authentik for self-hosters) — Cortex deliberately holds no credential store.
+  Set `Auth:RequireMfa` to make the platform additionally **reject any token that was not issued
+  after MFA** (judged by the `amr` claim; accepted markers configurable via `Auth:MfaAmrValues`),
+  so an IdP misconfiguration can't silently admit single-factor sessions.
 - `/alive` (liveness) and `/health` (readiness) are anonymous. If you add health checks that surface
   sensitive dependency detail, restrict `/health` (auth, or an internal-only port).
 - Run behind HTTPS; terminate TLS at the ingress (the Container App / reverse proxy).
