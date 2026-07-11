@@ -447,9 +447,9 @@ function ActionBar({ actions }: { actions: TabAction[] }) {
 
 /**
  * Server-driven tab content. If the tab declares a `dataEndpoint`, its data renders as a table —
- * or as a time-series line chart when the tab declares `chart`. Otherwise the consuming app may
- * supply content as children, or a placeholder is shown. The base library has no knowledge of
- * any particular vertical.
+ * or as a chart (time-series line, donut, or grouped bars per `chart.kind`) when the tab
+ * declares `chart`. Otherwise the consuming app may supply content as children, or a placeholder
+ * is shown. The base library has no knowledge of any particular vertical.
  */
 export function GenericTab({ tab, children }: GenericTabProps) {
   return (

@@ -1,40 +1,25 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet, type TabChart as TabChartSpec } from "../lib/api";
+import { formatY, MAX_SERIES, niceTicks, SERIES_BG, SERIES_FILL, SERIES_STROKE } from "../lib/chartTheme";
+import { TabBarChart } from "./TabBarChart";
+import { TabDonutChart } from "./TabDonutChart";
 
 /**
- * The shell's generic time-series line chart — a tab declaring `chart` renders its
- * dataEndpoint rows here instead of the table. Deliberately small and dependency-free:
- * one y-scale (never a dual axis), thin 2px lines, recessive grid, a crosshair+tooltip
- * hover layer, direct labels at line ends (a colored mark carries identity; the text
- * wears text tokens), and a legend once there are two or more series.
+ * The shell's server-driven chart — a tab declaring `chart` renders its dataEndpoint rows here
+ * instead of the table, with `chart.kind` picking the geometry: the time-series line below
+ * (the default), {@link TabDonutChart}, or {@link TabBarChart}. One fetch, shared loading/error
+ * handling; each kind owns its empty state (what "no data" means differs per geometry).
  *
- * Series colors are the validated categorical palette (light/dark are separately
- * selected steps, both validated against the app's surfaces — see the palette notes in
- * the PR that introduced this). Assigned in fixed order, never cycled: a 5th series
- * folds into the "more" note rather than inventing a hue.
+ * The line chart is deliberately small and dependency-free: one y-scale (never a dual axis),
+ * thin 2px lines, recessive grid, a crosshair+tooltip hover layer, direct labels at line ends
+ * (a colored mark carries identity; the text wears text tokens), and a legend once there are
+ * two or more series.
+ *
+ * Series colors are the validated categorical palette shared by every kind (see
+ * `lib/chartTheme.ts`). Assigned in fixed order, never cycled: a 5th series folds into the
+ * "more" note rather than inventing a hue.
  */
-
-// Fixed categorical order; static class strings so Tailwind's JIT sees them whole.
-const SERIES_STROKE = [
-  "stroke-[#2a78d6] dark:stroke-[#3987e5]",
-  "stroke-[#1baf7a] dark:stroke-[#199e70]",
-  "stroke-[#eda100] dark:stroke-[#c98500]",
-  "stroke-[#4a3aa7] dark:stroke-[#9085e9]",
-];
-const SERIES_FILL = [
-  "fill-[#2a78d6] dark:fill-[#3987e5]",
-  "fill-[#1baf7a] dark:fill-[#199e70]",
-  "fill-[#eda100] dark:fill-[#c98500]",
-  "fill-[#4a3aa7] dark:fill-[#9085e9]",
-];
-const SERIES_BG = [
-  "bg-[#2a78d6] dark:bg-[#3987e5]",
-  "bg-[#1baf7a] dark:bg-[#199e70]",
-  "bg-[#eda100] dark:bg-[#c98500]",
-  "bg-[#4a3aa7] dark:bg-[#9085e9]",
-];
-const MAX_SERIES = SERIES_STROKE.length;
 
 const WIDTH = 720;
 const HEIGHT = 280;
@@ -69,22 +54,6 @@ function buildSeries(rows: Record<string, unknown>[], spec: TabChartSpec): Serie
     .map(([name, points]) => ({ name, points: points.sort((a, b) => a.x - b.x) }));
 }
 
-function niceTicks(min: number, max: number, count = 4): number[] {
-  if (min === max) {
-    return [min];
-  }
-  const step = (max - min) / count;
-  const magnitude = 10 ** Math.floor(Math.log10(step));
-  const nice = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((s) => s >= step) ?? step;
-  const start = Math.ceil(min / nice) * nice;
-  const ticks: number[] = [];
-  for (let v = start; v <= max + 1e-9; v += nice) ticks.push(v);
-  return ticks;
-}
-
-const formatY = (v: number) =>
-  Math.abs(v) >= 1000 ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : v.toLocaleString();
-
 const formatDate = (ms: number) =>
   new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
@@ -93,13 +62,27 @@ export function TabChartView({ endpoint, spec }: { endpoint: string; spec: TabCh
     queryKey: ["tab-data", endpoint],
     queryFn: () => apiGet<Record<string, unknown>[]>(endpoint),
   });
-  const [hoverX, setHoverX] = useState<number | null>(null);
-
-  const allSeries = useMemo(() => buildSeries(data ?? [], spec), [data, spec]);
-  const series = allSeries.slice(0, MAX_SERIES);
 
   if (isLoading) return <p className="text-sm text-slate-500">Loading…</p>;
   if (isError) return <p className="text-sm text-red-600">{(error as Error).message}</p>;
+
+  const rows = data ?? [];
+  switch (spec.kind ?? "line") {
+    case "donut":
+      return <TabDonutChart rows={rows} spec={spec} />;
+    case "bar":
+      return <TabBarChart rows={rows} spec={spec} />;
+    default:
+      return <TabLineChart rows={rows} spec={spec} />;
+  }
+}
+
+function TabLineChart({ rows, spec }: { rows: Record<string, unknown>[]; spec: TabChartSpec }) {
+  const [hoverX, setHoverX] = useState<number | null>(null);
+
+  const allSeries = useMemo(() => buildSeries(rows, spec), [rows, spec]);
+  const series = allSeries.slice(0, MAX_SERIES);
+
   if (series.length === 0 || series.every((s) => s.points.length === 0)) {
     return (
       <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
