@@ -77,6 +77,8 @@ export type {
   RoleInfo,
   ModuleAdmin,
   ConnectorAdmin,
+  ConnectorCatalog,
+  AvailableConnector,
   ConnectorSetting,
   AdminTenant,
   AiSettings,

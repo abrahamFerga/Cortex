@@ -26,9 +26,9 @@ public sealed class HostDefinedConnectorTests(IntegrationFixture fixture)
         admin.DefaultRequestHeaders.Add("X-Dev-Roles", "system_admin");
 
         // The catalog surfaced a connector defined outside the Cortex.Connectors package.
-        var listing = await admin.GetFromJsonAsync<List<ConnectorRow>>("/api/admin/connectors/");
+        var listing = await admin.GetFromJsonAsync<ConnectorListing>("/api/admin/connectors/");
         Assert.NotNull(listing);
-        Assert.Contains(listing!, c => c.Id == HostDefinedCrmConnector.ConnectorId);
+        Assert.Contains(listing!.Installed, c => c.Id == HostDefinedCrmConnector.ConnectorId);
 
         (await admin.PutAsJsonAsync($"/api/admin/connectors/{HostDefinedCrmConnector.ConnectorId}/settings", new
         {
@@ -77,6 +77,8 @@ public sealed class HostDefinedConnectorTests(IntegrationFixture fixture)
         var tools = scope.ServiceProvider.GetRequiredService<HostDefinedCrmTools>();
         Assert.Contains("not enabled for this tenant", await tools.LookupContact("x@example.test"));
     }
+
+    private sealed record ConnectorListing(List<ConnectorRow> Installed);
 
     private sealed record ConnectorRow(string Id);
 }

@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { IntegrationsAdmin } from "./IntegrationsAdmin";
 
-const CONNECTORS = [
+const INSTALLED = [
   {
     id: "local-folder",
     displayName: "Local folder",
@@ -34,12 +34,25 @@ const CONNECTORS = [
   },
 ];
 
+const AVAILABLE = [
+  {
+    id: "documenso",
+    displayName: "Documenso e-signature",
+    description: "Send documents for signature.",
+    package: "Cortex.Connectors",
+    registration: "builder.AddCortexConnectors()",
+  },
+];
+
 function stubApi() {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? "GET";
     if (url.includes("/api/admin/connectors") && method === "GET") {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(CONNECTORS) } as unknown as Response);
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ installed: INSTALLED, available: AVAILABLE }),
+      } as unknown as Response);
     }
     return Promise.resolve({ ok: true, json: () => Promise.resolve(null) } as unknown as Response);
   });
@@ -71,6 +84,17 @@ describe("IntegrationsAdmin", () => {
     expect(screen.getByText("Azure Blob Storage")).toBeTruthy();
     // local-folder is off (default), so it carries the "disabled" marker.
     expect(screen.getByText("disabled")).toBeTruthy();
+  });
+
+  it("shows ecosystem connectors this deployment did not install, with the package to add", async () => {
+    stubApi();
+    renderIntegrations();
+
+    expect(await screen.findByText("Documenso e-signature")).toBeTruthy();
+    expect(screen.getByText("not installed")).toBeTruthy();
+    expect(screen.getByText("Cortex.Connectors")).toBeTruthy();
+    // An uninstalled connector offers no per-tenant switch — only the installed two do.
+    expect(screen.getAllByRole("switch")).toHaveLength(2);
   });
 
   it("enables a connector via its switch", async () => {

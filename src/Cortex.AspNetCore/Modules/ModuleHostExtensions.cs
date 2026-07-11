@@ -16,14 +16,30 @@ namespace Cortex.AspNetCore.Modules;
 public static class ModuleHostExtensions
 {
     /// <summary>
+    /// Configuration list of module ids a host suppresses without recompiling,
+    /// e.g. <c>Modules:Exclude:0=nutrition</c>. Unlike the per-tenant runtime toggle (which hides
+    /// an offered module from one tenant), exclusion removes the module from the deployment
+    /// entirely — no endpoints, no tools, no catalog entry.
+    /// </summary>
+    public const string ExcludeKey = "Modules:Exclude";
+
+    /// <summary>
     /// Registers a Cortex module in the host. Call once per module in <c>Program.cs</c>.
     /// The module's services are added to the DI container and its manifest is exposed
-    /// to the catalog. Modules can be shipped as NuGet packages.
+    /// to the catalog. Modules can be shipped as NuGet packages. Honors <see cref="ExcludeKey"/>,
+    /// so which modules a deployment offers is adjustable by configuration alone (ADR-0001).
     /// </summary>
     public static IHostApplicationBuilder AddCortexModule<TModule>(this IHostApplicationBuilder builder)
         where TModule : class, IModule, new()
     {
         var module = new TModule();
+        var excluded = builder.Configuration.GetSection(ExcludeKey).GetChildren()
+            .Any(c => string.Equals(c.Value, module.Manifest.Id, StringComparison.OrdinalIgnoreCase));
+        if (excluded)
+        {
+            return builder;
+        }
+
         module.RegisterServices(builder.Services, builder.Configuration);
         builder.Services.AddSingleton<IModule>(module);
         return builder;

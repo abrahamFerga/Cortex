@@ -22,13 +22,15 @@ public static class ConnectorAdminEndpoints
             .RequireAuthorization(PermissionRequirement.PolicyName(Permissions.ManageConnectors));
 
         // Installed connectors + this tenant's enablement/settings state, schema included so the
-        // admin UI renders the settings form without knowing any connector specifics.
+        // admin UI renders the settings form without knowing any connector specifics. Alongside
+        // them, the "available" list: first-party connectors this deployment did NOT install,
+        // with the package + registration call an operator needs — the browsable marketplace.
         group.MapGet("/", async (
                 IConnectorCatalog catalog, ConnectorSettingsService settings, PlatformDbContext db,
                 CancellationToken cancellationToken) =>
             {
                 var rows = await db.TenantConnectors.ToListAsync(cancellationToken);
-                var result = catalog.Manifests
+                var installed = catalog.Manifests
                     .OrderBy(m => m.DisplayName, StringComparer.OrdinalIgnoreCase)
                     .Select(m =>
                     {
@@ -41,8 +43,13 @@ public static class ConnectorAdminEndpoints
                                 s.Key, s.Label, s.Description, s.Required, s.IsSecret,
                                 HasValue: withValues.Contains(s.Key))).ToArray(),
                             m.Tools.Select(t => new ConnectorToolDto(t.Name, t.Description, t.Permission, t.RequiresApproval)).ToArray());
-                    });
-                return Results.Ok(result);
+                    })
+                    .ToArray();
+                var available = ConnectorDirectory.All
+                    .Where(k => !catalog.TryGetManifest(k.Id, out _))
+                    .Select(k => new AvailableConnectorDto(k.Id, k.DisplayName, k.Description, k.Package, k.Registration))
+                    .ToArray();
+                return Results.Ok(new ConnectorCatalogDto(installed, available));
             })
             .WithName("Admin_Connectors");
 
@@ -125,6 +132,12 @@ public static class ConnectorAdminEndpoints
             })
             .WithName("Admin_UpdateConnectorSettings");
     }
+
+    private sealed record ConnectorCatalogDto(
+        IReadOnlyList<ConnectorDto> Installed, IReadOnlyList<AvailableConnectorDto> Available);
+
+    private sealed record AvailableConnectorDto(
+        string Id, string DisplayName, string Description, string Package, string Registration);
 
     private sealed record ConnectorDto(
         string Id, string DisplayName, string Description, string AuthMode, bool SupportsSync, string? Icon,

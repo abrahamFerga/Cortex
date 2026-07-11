@@ -1,11 +1,5 @@
-using Cortex.AspNetCore.Connectors;
 using Cortex.AspNetCore.Hosting;
-using Cortex.Connectors.AzureBlob;
-using Cortex.Connectors.LocalFolder;
-using Cortex.Connectors.GoogleDrive;
-using Cortex.Connectors.MsGraph;
-using Cortex.Connectors.Peer;
-using Cortex.Connectors.S3;
+using Cortex.Connectors;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cortex base platform host — no domain modules installed here.
@@ -26,14 +20,10 @@ builder.AddCortexPlatform();
 // ── Add your domain modules here, e.g.:
 // builder.AddCortexModule<FinanceModule>();
 
-// The built-in data-source connectors ship even on the bare platform (default-off per tenant —
-// an admin turns each one on under Integrations). Your own connectors register the same way.
-builder.AddCortexConnector<LocalFolderConnector>();
-builder.AddCortexConnector<AzureBlobConnector>();
-builder.AddCortexConnector<CortexPeerConnector>();
-builder.AddCortexConnector<MsGraphConnector>();
-builder.AddCortexConnector<GoogleDriveConnector>();
-builder.AddCortexConnector<S3Connector>();
+// Every built-in data-source connector ships even on the bare platform (default-off per tenant —
+// an admin turns each one on under Integrations). Suppress one by config with Connectors:Exclude;
+// your own connectors register individually with builder.AddCortexConnector<T>().
+builder.AddCortexConnectors();
 
 var app = builder.Build();
 

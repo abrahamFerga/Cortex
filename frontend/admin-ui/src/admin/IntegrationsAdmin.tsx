@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type ConnectorAdmin } from "@cortex/ui";
+import { api, type AvailableConnector, type ConnectorAdmin } from "@cortex/ui";
 
 function Toggle({ on, disabled, onChange }: { on: boolean; disabled: boolean; onChange: (next: boolean) => void }) {
   return (
@@ -160,10 +160,33 @@ function ConnectorCard({ connector }: { connector: ConnectorAdmin }) {
   );
 }
 
+/** A connector that exists in the ecosystem but isn't installed on this deployment. */
+function AvailableCard({ connector }: { connector: AvailableConnector }) {
+  return (
+    <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
+      <p className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-300">
+        {connector.displayName}
+        <span className="font-mono text-xs text-slate-400">{connector.id}</span>
+        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-500 dark:bg-slate-800">
+          not installed
+        </span>
+      </p>
+      <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{connector.description}</p>
+      <p className="mt-1 text-xs text-slate-400">
+        Ships in <span className="font-mono">{connector.package}</span> — the deployment operator adds{" "}
+        <span className="font-mono">{connector.registration}</span> (or removes it from{" "}
+        <span className="font-mono">Connectors:Exclude</span>) and redeploys.
+      </p>
+    </div>
+  );
+}
+
 /**
  * Per-tenant data-source connectors (the Integrations page). Connectors ship with the deployment
  * but are default-off: enabling one here is what makes its tools exist for this tenant's agents —
  * each tool still individually permission-gated, fetches approval-gated, everything audited.
+ * Below the installed ones, the catalog also shows first-party connectors this deployment did NOT
+ * install, so discovering an integration never requires reading platform source.
  */
 export function IntegrationsAdmin() {
   const connectors = useQuery({ queryKey: ["admin", "connectors"], queryFn: api.admin.connectors });
@@ -175,7 +198,8 @@ export function IntegrationsAdmin() {
     return <p className="text-sm text-red-600">{(connectors.error as Error).message}</p>;
   }
 
-  const rows = connectors.data ?? [];
+  const installed = connectors.data?.installed ?? [];
+  const available = connectors.data?.available ?? [];
 
   return (
     <div className="space-y-4">
@@ -187,16 +211,27 @@ export function IntegrationsAdmin() {
         </p>
       </header>
 
-      {rows.length === 0 ? (
+      {installed.length === 0 ? (
         <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-400 dark:border-slate-700">
           No connectors are installed in this deployment.
         </p>
       ) : (
         <div className="space-y-2">
-          {rows.map((c) => (
+          {installed.map((c) => (
             <ConnectorCard key={c.id} connector={c} />
           ))}
         </div>
+      )}
+
+      {available.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="pt-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+            Available — not installed on this deployment
+          </h2>
+          {available.map((c) => (
+            <AvailableCard key={c.id} connector={c} />
+          ))}
+        </section>
       )}
     </div>
   );

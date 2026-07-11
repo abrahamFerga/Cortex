@@ -264,6 +264,21 @@ export interface ConnectorAdmin {
   tools: { name: string; description?: string; permission: string; requiresApproval: boolean }[];
 }
 
+/** A first-party connector this deployment did NOT install — with what an operator adds to get it. */
+export interface AvailableConnector {
+  id: string;
+  displayName: string;
+  description: string;
+  package: string;
+  registration: string;
+}
+
+/** The admin Integrations catalog: what's installed here vs. what exists in the ecosystem. */
+export interface ConnectorCatalog {
+  installed: ConnectorAdmin[];
+  available: AvailableConnector[];
+}
+
 /** A tenant in the deployment, from GET /api/admin/tenants (operator-only, cross-tenant). */
 export interface AdminTenant {
   id: string;
@@ -654,7 +669,7 @@ export const api = {
     modules: () => apiGet<ModuleAdmin[]>("/api/admin/modules"),
     setModuleEnabled: (moduleId: string, enabled: boolean) =>
       apiSend(`/api/admin/modules/${encodeURIComponent(moduleId)}`, "PUT", { enabled }),
-    connectors: () => apiGet<ConnectorAdmin[]>("/api/admin/connectors"),
+    connectors: () => apiGet<ConnectorCatalog>("/api/admin/connectors"),
     setConnectorEnabled: (connectorId: string, enabled: boolean) =>
       apiSend(`/api/admin/connectors/${encodeURIComponent(connectorId)}/${enabled ? "enable" : "disable"}`, "POST"),
     // Omitted keys keep their stored value (the UI never has a secret to echo back).
