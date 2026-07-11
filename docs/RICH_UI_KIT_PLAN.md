@@ -68,14 +68,21 @@ consuming product's assumptions:
   (grouped bars in row order, zero always in the domain, negatives hang below an emphasized
   zero line, category-band hover tooltip). Bars were built grouped, not stacked — the named
   driving case (income vs. expense) compares magnitudes, which stacking obscures.
-- [ ] **Phase 2 — Stat-tile & progress-bar primitives**: two small, composable, exported
+- [x] **Phase 2 — Stat-tile & progress-bar primitives**: two small, composable, exported
   components — `StatTile` (a labeled number, optional trend sparkline, optional icon) and
   `ProgressBar` (value/target, semantic color banding). Redundant status coding from day one:
   color is never the only signal — pair with an icon and text (e.g. "Over budget by $40", not a
-  bare red bar), theme-aware CSS variables for the semantic bands (healthy/warning/critical) so
-  light and dark stay legible. These are the pieces a product's own dashboard (via the moduleUi
-  seam) or `GenericTab` composes from — not a dashboard layout itself, which stays product-side
-  per the research note above.
+  bare red bar), theme-aware semantic bands (healthy/warning/critical) so light and dark stay
+  legible. These are the pieces a product's own dashboard (via the moduleUi seam) or
+  `GenericTab` composes from — not a dashboard layout itself, which stays product-side per the
+  research note above. Delivered: both exported from the package entry with their prop types;
+  numbers format through `chartTheme.formatY` so tiles and charts never disagree; `ProgressBar`
+  bands at `warnAt` (default 0.85) → warning → critical past target, track capped at 100% with
+  the overage stated as text, each band carrying a distinct stroke-drawn icon + status text +
+  full `role="progressbar"` semantics. One deliberate deviation from the phase text: band colors
+  are static emerald/amber/red Tailwind classes with `dark:` variants (the idiom
+  `PendingApprovals` and the chart palette already use), not new CSS variables — status
+  semantics are universal, unlike the brand accent, so rebrandability would be a bug.
 - [ ] **Phase 3 — `GenericTab` mobile card-mode**: below a breakpoint, each row renders as a
   card (the row's designated title field as the card header, a few key fields visible, the rest
   revealed on tap) instead of a horizontally-scrolling table. Ships in the one shared component
