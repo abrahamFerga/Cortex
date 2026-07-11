@@ -100,17 +100,40 @@ public sealed class RequestEnricher(
                 Email = email ?? subject,
                 DisplayName = name,
             };
-            // Default the new user to the configured role (Auth:DefaultRole, "user" unless the
-            // product overrides it) ONLY when the token asserts no roles of its own. A principal
-            // whose IdP already scopes it (e.g. "guest") must not silently escalate via a DB role
-            // the platform invented. In Token mode the platform NEVER invents a role — the
-            // external IdP is the single authority, so a role-less token means a permission-less
-            // user until the IdP says otherwise.
-            var hasTokenRoles = principal.FindAll(ClaimTypes.Role).Concat(principal.FindAll("roles")).Any();
-            if (!hasTokenRoles && !authorizationSource.Value.IsTokenSourced &&
-                !string.IsNullOrWhiteSpace(authorizationSource.Value.DefaultRole))
+
+            // A standing invite for this email (created in Admin → Users before the person ever
+            // signed in) defines the starting roles; the address is the key, no token link needed.
+            var normalizedEmail = (email ?? subject).Trim().ToLowerInvariant();
+            var invite = await db.UserInvites.IgnoreQueryFilters().FirstOrDefaultAsync(
+                i => i.TenantId == tenant.Id && i.RedeemedAt == null && i.Email == normalizedEmail,
+                cancellationToken);
+            if (invite is not null && invite.RoleList() is { Length: > 0 } invitedRoles)
             {
-                user.Roles.Add(new UserRole { TenantId = tenant.Id, UserId = user.Id, Role = authorizationSource.Value.DefaultRole });
+                foreach (var role in invitedRoles)
+                {
+                    user.Roles.Add(new UserRole { TenantId = tenant.Id, UserId = user.Id, Role = role });
+                }
+            }
+            else
+            {
+                // Default the new user to the configured role (Auth:DefaultRole, "user" unless the
+                // product overrides it) ONLY when the token asserts no roles of its own. A principal
+                // whose IdP already scopes it (e.g. "guest") must not silently escalate via a DB role
+                // the platform invented. In Token mode the platform NEVER invents a role — the
+                // external IdP is the single authority, so a role-less token means a permission-less
+                // user until the IdP says otherwise.
+                var hasTokenRoles = principal.FindAll(ClaimTypes.Role).Concat(principal.FindAll("roles")).Any();
+                if (!hasTokenRoles && !authorizationSource.Value.IsTokenSourced &&
+                    !string.IsNullOrWhiteSpace(authorizationSource.Value.DefaultRole))
+                {
+                    user.Roles.Add(new UserRole { TenantId = tenant.Id, UserId = user.Id, Role = authorizationSource.Value.DefaultRole });
+                }
+            }
+
+            if (invite is not null)
+            {
+                invite.RedeemedAt = DateTimeOffset.UtcNow;
+                invite.RedeemedByUserId = user.Id;
             }
 
             db.Users.Add(user);
@@ -125,6 +148,20 @@ public sealed class RequestEnricher(
                 EventType = AuthAuditEventType.UserProvisioned,
                 IpAddress = ipAddress,
             }, cancellationToken);
+
+            if (invite is not null)
+            {
+                await auditLog.RecordAuthEventAsync(new AuthAuditEntry
+                {
+                    TenantId = tenant.Id,
+                    UserId = user.Id,
+                    Subject = subject,
+                    UserDisplay = name,
+                    EventType = AuthAuditEventType.InviteRedeemed,
+                    Detail = invite.Roles.Length > 0 ? $"roles: {invite.Roles}" : "default role",
+                    IpAddress = ipAddress,
+                }, cancellationToken);
+            }
         }
         else
         {

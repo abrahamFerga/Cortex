@@ -1,4 +1,7 @@
+using Cortex.Application.Modules;
 using Cortex.Core.Identity;
+using Cortex.Core.Multitenancy;
+using Cortex.Core.Platform;
 using Cortex.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -74,7 +77,71 @@ public static class NotificationEndpoints
             return Results.Ok(new { marked = unread.Count });
         })
         .WithName("Notifications_MarkAllRead");
+
+        // The mute switchboard: every category any installed module declares, with the caller's
+        // current stance. No stored row = on; a mute suppresses in-app and channels alike.
+        group.MapGet("/preferences", async (
+            IModuleCatalog catalog, PlatformDbContext db, ICurrentUser current, CancellationToken ct) =>
+        {
+            if (current.UserId is not Guid userId)
+            {
+                return Results.BadRequest("No authenticated user.");
+            }
+
+            var stored = await db.UserNotificationPreferences
+                .Where(p => p.UserId == userId)
+                .ToListAsync(ct);
+            var categories = catalog.Manifests
+                .SelectMany(m => m.NotificationCategories.Select(c => new PreferenceDto(
+                    c.Id, c.Label, c.Description, m.Id,
+                    stored.FirstOrDefault(p => p.Category == c.Id)?.Enabled ?? true)))
+                .OrderBy(c => c.ModuleId, StringComparer.Ordinal)
+                .ThenBy(c => c.Label, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            return Results.Ok(categories);
+        })
+        .WithName("Notifications_Preferences");
+
+        group.MapPut("/preferences/{category}", async (
+            string category, PreferenceUpdate body, IModuleCatalog catalog, PlatformDbContext db,
+            ICurrentUser current, ITenantContext tenant, CancellationToken ct) =>
+        {
+            if (current.UserId is not Guid userId)
+            {
+                return Results.BadRequest("No authenticated user.");
+            }
+
+            var declared = catalog.Manifests.Any(m => m.NotificationCategories.Any(c =>
+                string.Equals(c.Id, category, StringComparison.Ordinal)));
+            if (!declared)
+            {
+                return Results.NotFound(new { error = $"No module declares the notification category '{category}'." });
+            }
+
+            var preference = await db.UserNotificationPreferences
+                .FirstOrDefaultAsync(p => p.UserId == userId && p.Category == category, ct);
+            if (preference is null)
+            {
+                preference = new UserNotificationPreference
+                {
+                    TenantId = tenant.RequireTenantId(),
+                    UserId = userId,
+                    Category = category,
+                };
+                db.UserNotificationPreferences.Add(preference);
+            }
+
+            preference.Enabled = body.Enabled;
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(new { category, enabled = preference.Enabled });
+        })
+        .WithName("Notifications_UpdatePreference");
     }
+
+    private sealed record PreferenceDto(
+        string Id, string Label, string? Description, string ModuleId, bool Enabled);
+
+    public sealed record PreferenceUpdate(bool Enabled);
 
     private sealed record NotificationDto(
         Guid Id, string Category, string Title, string Body, string? Link, DateTimeOffset CreatedAt, DateTimeOffset? ReadAt);

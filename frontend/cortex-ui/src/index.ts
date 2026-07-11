@@ -87,10 +87,12 @@ export type {
   ModuleAgent,
   ModuleSkill,
   NotificationInfo,
+  NotificationPreference,
   NotificationSettings,
   UserConnector,
   OpsSnapshot,
   AdminUser,
+  UserInviteAdmin,
   ToolCall,
   AuthEvent,
   UsageReport,
@@ -101,7 +103,7 @@ export type { AgentStreamEvent } from "./lib/signalr";
 export type { AguiEvent } from "./lib/agui";
 
 // API / lib utilities
-export { apiGet, apiSend, api, ApiError, uploadFile } from "./lib/api";
+export { apiGet, apiSend, apiPost, api, ApiError, uploadFile } from "./lib/api";
 export type { StoredFileInfo } from "./lib/api";
 export { hasPermission } from "./lib/permissions";
 export { withAttachmentRefs, parseAttachmentRefs } from "./lib/attachments";

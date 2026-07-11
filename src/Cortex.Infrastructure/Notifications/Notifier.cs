@@ -1,6 +1,7 @@
 using Cortex.Application.Notifications;
 using Cortex.Core.Platform;
 using Cortex.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Cortex.Infrastructure.Notifications;
@@ -18,6 +19,24 @@ public sealed class Notifier(
 {
     public async Task NotifyAsync(Notification notification, CancellationToken cancellationToken = default)
     {
+        // The user's per-category mute: a disabled preference suppresses the notification entirely
+        // (in-app AND channels). Producers often run outside a request scope, so the tenant filter
+        // is applied explicitly rather than relying on an ambient tenant.
+        var muted = await db.UserNotificationPreferences.IgnoreQueryFilters().AnyAsync(
+            p => p.TenantId == notification.TenantId
+                && p.UserId == notification.UserId
+                && p.Category == notification.Category
+                && !p.Enabled,
+            cancellationToken);
+        if (muted)
+        {
+            if (logger.IsEnabled(LogLevel.Debug))
+            {
+                logger.LogDebug("Notification '{Category}' suppressed by user preference", notification.Category);
+            }
+            return;
+        }
+
         db.UserNotifications.Add(new UserNotification
         {
             TenantId = notification.TenantId,

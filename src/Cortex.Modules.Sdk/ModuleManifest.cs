@@ -45,6 +45,12 @@ public sealed record ModuleManifest
     public IReadOnlyList<string> Roles { get; init; } = [];
 
     /// <summary>
+    /// Notification categories this module emits, so users get a per-category mute switch
+    /// (no row = on; a mute suppresses in-app and channel delivery alike). Optional.
+    /// </summary>
+    public IReadOnlyList<NotificationCategoryDescriptor> NotificationCategories { get; init; } = [];
+
+    /// <summary>
     /// System instructions injected into the agent when chatting within this module's context.
     /// Lets each domain steer tone, guardrails, and tool usage independently.
     /// </summary>

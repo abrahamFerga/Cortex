@@ -101,6 +101,7 @@ and change without a deploy.
 | `Files` | `Provider` (Local/AzureBlob) + provider settings | |
 | `Channels:WhatsApp` | `Enabled` + Meta Cloud API secrets | Secrets via user-secrets/env |
 | `Channels:Email` | `Enabled`, `Host`/`Port`/`UseSsl`, `Username`, `Password`, `Folder`, `ModuleId`, `TenantSlug`, `PollSeconds`, `ReplyEnabled` | IMAP intake mailbox polled into agent turns (docs/INBOUND_CHANNELS.md); password via user-secrets/env; replies off by default |
+| `Email` | Outbound SMTP: `Enabled`, `Host`/`Port`/`UseStartTls`, `Username`, `Password`, `FromAddress`, `FromName` | Powers the email notification channel AND user invites; password via user-secrets/env. Unconfigured, invites still work (share the link manually) |
 | `Auth` | `Authority`, `Audience`, `PermissionSource` (Database/Token) | Empty = dev-auth in Development only |
 | `Secrets` | `Provider` (DataProtection/AzureKeyVault), `KeyVaultUri` | Where runtime-entered secrets rest |
 | `Cors:Origins` | Allowed SPA origins | Aspire injects these automatically in dev |
@@ -171,6 +172,23 @@ declare `ModuleManifest.AdminTabs` (the same `TabDescriptor` machinery — data 
 chart, actions) and the admin app renders them under the module's name, no `@cortex/admin-ui`
 fork needed. Every admin tab must declare a `Permission` (validated at startup) — an admin
 surface is never visible by default. Served permission-filtered at `GET /api/admin/extensions`.
+
+### Inviting people (Admin → Users)
+
+Cortex provisions users just-in-time at first sign-in — which used to mean roles could only be
+assigned to people who had already signed in once. **Standing invites** close that gap: an admin
+names an email address and starting roles, and the first sign-in with that address applies them
+automatically (any IdP — the invite is keyed on the email claim, no token link). With `Email`
+configured the invitee gets a mail; without it the invite still works and the admin shares the
+sign-in link. Pending invites are revocable; everything is audited.
+
+### Per-user notification preferences
+
+Modules declare the notification categories they emit (`ModuleManifest.NotificationCategories`),
+and every user gets a per-category mute switch in the notification bell. A mute suppresses that
+category entirely for that user — the in-app row and every channel — without touching anyone
+else's notifications or any other category. No stored row means "on", so new categories need no
+backfill.
 
 ## Where runtime configuration lives (admin console, per tenant)
 

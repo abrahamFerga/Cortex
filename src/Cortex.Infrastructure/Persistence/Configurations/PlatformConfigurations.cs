@@ -196,6 +196,32 @@ internal sealed class NotificationSettingsConfiguration : IEntityTypeConfigurati
     }
 }
 
+internal sealed class UserNotificationPreferenceConfiguration : IEntityTypeConfiguration<UserNotificationPreference>
+{
+    public void Configure(EntityTypeBuilder<UserNotificationPreference> b)
+    {
+        b.ToTable("user_notification_preferences");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Category).HasMaxLength(32).IsRequired();
+        // One stance per (user, category) - the notifier's mute check and the upsert both key on this.
+        b.HasIndex(x => new { x.TenantId, x.UserId, x.Category }).IsUnique();
+    }
+}
+
+internal sealed class UserInviteConfiguration : IEntityTypeConfiguration<UserInvite>
+{
+    public void Configure(EntityTypeBuilder<UserInvite> b)
+    {
+        b.ToTable("user_invites");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Email).HasMaxLength(320).IsRequired();
+        b.Property(x => x.Roles).HasMaxLength(500);
+        // The redemption lookup on first sign-in; pending-uniqueness is enforced in the endpoint
+        // (a redeemed invite must not block re-inviting the same address later).
+        b.HasIndex(x => new { x.TenantId, x.Email });
+    }
+}
+
 internal sealed class UserNotificationConfiguration : IEntityTypeConfiguration<UserNotification>
 {
     public void Configure(EntityTypeBuilder<UserNotification> b)

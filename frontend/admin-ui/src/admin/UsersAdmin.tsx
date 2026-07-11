@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ConfirmDialog, type AdminUser } from "@cortex/ui";
+import { InvitesPanel } from "./InvitesPanel";
 
 function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
@@ -187,6 +188,8 @@ export function UsersAdmin() {
           Roles grant baseline permissions; per-user grants unlock individual module tools.
         </p>
       </header>
+
+      <InvitesPanel allRoles={allRoles} />
 
       <div className="grid gap-3 lg:grid-cols-2">
         {users.data?.map((u) => (

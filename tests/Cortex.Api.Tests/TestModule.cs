@@ -37,6 +37,10 @@ internal sealed class TestModule : IModule
                 Columns = [new("name", "Name"), new("status", "Status")],
             },
         ],
+        NotificationCategories =
+        [
+            new("test-alerts", "Test alerts", "Alerts emitted by the test module."),
+        ],
         Tools =
         [
             new ToolDescriptor

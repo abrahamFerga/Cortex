@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { NotificationPreferences } from "./NotificationPreferences";
 
 /** How stale the badge may get before the next poll (background events push nothing yet). */
 const POLL_MS = 30_000;
@@ -20,6 +21,7 @@ function timeAgo(iso: string): string {
  */
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
+  const [showPrefs, setShowPrefs] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
@@ -93,16 +95,28 @@ export function NotificationBell() {
         >
           <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2 dark:border-slate-700">
             <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">Notifications</span>
-            {unread > 0 && (
+            <span className="flex items-center gap-1">
+              {unread > 0 && !showPrefs && (
+                <button
+                  type="button"
+                  onClick={() => markAllRead.mutate()}
+                  className="focus-ring rounded px-2 py-0.5 text-xs font-medium text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Mark all read
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => markAllRead.mutate()}
-                className="focus-ring rounded px-2 py-0.5 text-xs font-medium text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                onClick={() => setShowPrefs((v) => !v)}
+                aria-pressed={showPrefs}
+                className="focus-ring rounded px-2 py-0.5 text-xs font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
-                Mark all read
+                {showPrefs ? "Back" : "Preferences"}
               </button>
-            )}
+            </span>
           </div>
+          {showPrefs && <NotificationPreferences />}
+          {!showPrefs && (
           <ul className="max-h-96 overflow-y-auto">
             {items.length === 0 && (
               <li className="px-3 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
@@ -145,6 +159,7 @@ export function NotificationBell() {
               </li>
             ))}
           </ul>
+          )}
         </div>
       )}
     </div>

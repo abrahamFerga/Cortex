@@ -288,6 +288,24 @@ export interface ConnectorCatalog {
   available: AvailableConnector[];
 }
 
+/** A standing email invite, from GET /api/admin/users/invites. */
+export interface UserInviteAdmin {
+  id: string;
+  email: string;
+  roles: string[];
+  createdAt: string;
+  redeemedAt?: string | null;
+}
+
+/** One notification category (module-declared) with the caller's current stance. */
+export interface NotificationPreference {
+  id: string;
+  label: string;
+  description?: string | null;
+  moduleId: string;
+  enabled: boolean;
+}
+
 /** A tenant in the deployment, from GET /api/admin/tenants (operator-only, cross-tenant). */
 export interface AdminTenant {
   id: string;
@@ -573,6 +591,25 @@ export async function apiSend(
   }
 }
 
+/** POST with a JSON body, returning the parsed JSON response (apiSend discards it). */
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...devAuthHeaders,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    throw await toApiError("POST", path, res);
+  }
+
+  return (await res.json()) as T;
+}
+
 /** A file stored in the platform file store (chat attachments, agent-generated documents). */
 export interface StoredFileInfo {
   id: string;
@@ -629,6 +666,10 @@ export const api = {
       apiGet<NotificationInfo[]>(`/api/notifications/${unreadOnly ? "?unreadOnly=true" : ""}`),
     markRead: (id: string) => apiSend(`/api/notifications/${id}/read`, "POST"),
     markAllRead: () => apiSend("/api/notifications/read-all", "POST"),
+    // Per-category mute switches (categories are module-declared; no row = on).
+    preferences: () => apiGet<NotificationPreference[]>("/api/notifications/preferences"),
+    setPreference: (category: string, enabled: boolean) =>
+      apiSend(`/api/notifications/preferences/${encodeURIComponent(category)}`, "PUT", { enabled }),
   },
 
   // Human-in-the-loop: side-effecting tool calls the agent was blocked from auto-running.
@@ -678,6 +719,12 @@ export const api = {
     modules: () => apiGet<ModuleAdmin[]>("/api/admin/modules"),
     // Module-contributed admin console pages (ModuleManifest.AdminTabs), permission-filtered.
     extensions: () => apiGet<AdminExtension[]>("/api/admin/extensions"),
+
+    // Standing email invites: roles apply at the invited address's first sign-in.
+    invites: () => apiGet<UserInviteAdmin[]>("/api/admin/users/invites"),
+    createInvite: (email: string, roles: string[]) =>
+      apiPost<{ id: string; emailSent: boolean; message: string }>("/api/admin/users/invites", { email, roles }),
+    revokeInvite: (id: string) => apiSend(`/api/admin/users/invites/${encodeURIComponent(id)}`, "DELETE"),
     setModuleEnabled: (moduleId: string, enabled: boolean) =>
       apiSend(`/api/admin/modules/${encodeURIComponent(moduleId)}`, "PUT", { enabled }),
     connectors: () => apiGet<ConnectorCatalog>("/api/admin/connectors"),

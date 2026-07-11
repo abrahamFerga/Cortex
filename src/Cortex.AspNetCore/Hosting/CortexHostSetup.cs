@@ -131,6 +131,7 @@ public static class CortexHostSetup
         app.MapNotificationEndpoints();
         app.MapAdminEndpoints();
         app.MapAdminExtensionEndpoints();
+        app.MapUserInviteEndpoints();
         app.MapConnectorAdminEndpoints();
         app.MapConnectorOAuthEndpoints();
         app.MapAgui();

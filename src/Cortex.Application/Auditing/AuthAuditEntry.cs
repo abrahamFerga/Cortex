@@ -24,6 +24,9 @@ public enum AuthAuditEventType
     /// <summary>A custom (tenant-defined) role was deleted.</summary>
     RoleDeleted = 10,
 
+    /// <summary>A standing email invite was redeemed at a user's first sign-in.</summary>
+    InviteRedeemed = 12,
+
     /// <summary>A new user was refused because the tenant's subscription seat limit is reached.</summary>
     SeatLimitDenied = 11,
 }
