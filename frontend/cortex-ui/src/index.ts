@@ -47,6 +47,13 @@ export { ConfirmDialog } from "./components/ConfirmDialog";
 export { ThemeToggle } from "./components/ThemeToggle";
 export { NotificationBell } from "./components/NotificationBell";
 
+// Dashboard primitives — composition pieces for a product's own overview tab (registered via the
+// module UI registry): the shell ships the pieces, the product owns the layout.
+export { StatTile } from "./components/StatTile";
+export type { StatTileProps } from "./components/StatTile";
+export { ProgressBar } from "./components/ProgressBar";
+export type { ProgressBarProps } from "./components/ProgressBar";
+
 // Theme (dark mode): call initTheme() at startup; ThemeToggle (or useTheme) drives the preference.
 export { initTheme, useTheme, resolveTheme, getThemePreference, setThemePreference } from "./lib/theme";
 export type { ThemePreference } from "./lib/theme";
