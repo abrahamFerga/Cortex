@@ -16,9 +16,12 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
 
-  # Frontend (@cortex/ui) npm dependencies.
+  # Frontend pnpm WORKSPACE (@cortex/ui + @cortex/admin-ui). The directory must be the
+  # workspace ROOT — pnpm-lock.yaml lives there; pointing at a member package makes
+  # dependabot bump package.json without the lockfile, and every PR dies on
+  # ERR_PNPM_OUTDATED_LOCKFILE under --frozen-lockfile CI.
   - package-ecosystem: "npm"
-    directory: "/frontend/cortex-ui"
+    directory: "/frontend"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
