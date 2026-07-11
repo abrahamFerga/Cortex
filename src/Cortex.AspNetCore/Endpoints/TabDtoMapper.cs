@@ -29,7 +29,7 @@ internal static class TabDtoMapper
                     : null,
                 t.DetailEndpoint,
                 t.Chart is { } chart
-                    ? new TabChartDto(chart.XField, chart.YField, chart.SeriesField, chart.YLabel)
+                    ? new TabChartDto(ToKindString(chart.Kind), chart.XField, chart.YField, chart.SeriesField, chart.YLabel)
                     : null,
                 // Same rule as the editor: only advertise actions the caller can actually invoke.
                 t.Actions
@@ -45,13 +45,22 @@ internal static class TabDtoMapper
     internal static TabEditorFieldDto ToFieldDto(TabEditorField f) => new(
         f.Field, f.Label, f.Multiline, f.Required, f.Numeric,
         f.Options?.ToArray(), f.OptionsEndpoint, f.OptionsField);
+
+    // The wire keeps the kind a lowercase string literal (the shell switches on it), not an
+    // enum ordinal — adding a kind must never renumber what existing clients see.
+    private static string ToKindString(TabChartKind kind) => kind switch
+    {
+        TabChartKind.Donut => "donut",
+        TabChartKind.Bar => "bar",
+        _ => "line",
+    };
 }
 
 internal sealed record TabDto(
     string Id, string Label, string Route, string? Icon, string? DataEndpoint, TabColumnDto[] Columns, string? Placeholder,
     TabEditorDto? Editor, string? DetailEndpoint, TabChartDto? Chart, TabActionDto[] Actions, TabRowActionDto[] RowActions);
 
-internal sealed record TabChartDto(string XField, string YField, string? SeriesField, string? YLabel);
+internal sealed record TabChartDto(string Kind, string XField, string YField, string? SeriesField, string? YLabel);
 
 internal sealed record TabActionDto(string Id, string Label, string Endpoint, string? Confirm);
 

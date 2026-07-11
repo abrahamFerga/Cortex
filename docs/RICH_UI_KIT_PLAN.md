@@ -55,12 +55,19 @@ consuming product's assumptions:
 ## Phases
 
 - [x] **Phase 0 — this plan** (research + document).
-- [ ] **Phase 1 — Chart kinds: proportional + categorical**: extend `TabChartSpec` with a
+- [x] **Phase 1 — Chart kinds: proportional + categorical**: extend `TabChartSpec` with a
   `kind` discriminator (`"line"` default, preserving every existing chart unchanged) plus
   `"donut"` (capped segments + an "Other" rollup, matching `TabChart`'s existing categorical
   palette) and `"bar"` (grouped/stacked, for income-vs-expense-style two-series comparisons).
   Same dependency-free SVG approach as the existing line chart — no charting library. Unit
-  tests mirror `TabChart.test.tsx`'s structure per kind.
+  tests mirror `TabChart.test.tsx`'s structure per kind. Delivered: `TabChartKind` enum on the
+  SDK record (wire = lowercase string literal, mapped explicitly so enum renumbering can never
+  shift the contract), the shared palette extracted to `lib/chartTheme.ts`, `TabChartView` as a
+  one-fetch dispatcher, `TabDonutChart` (stroke-dasharray segments — handles the 100% single
+  slice; direct-labeled legend with value + share; total in the hole) and `TabBarChart`
+  (grouped bars in row order, zero always in the domain, negatives hang below an emphasized
+  zero line, category-band hover tooltip). Bars were built grouped, not stacked — the named
+  driving case (income vs. expense) compares magnitudes, which stacking obscures.
 - [ ] **Phase 2 — Stat-tile & progress-bar primitives**: two small, composable, exported
   components — `StatTile` (a labeled number, optional trend sparkline, optional icon) and
   `ProgressBar` (value/target, semantic color banding). Redundant status coding from day one:

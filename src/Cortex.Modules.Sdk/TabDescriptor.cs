@@ -57,19 +57,60 @@ public sealed record TabEditor
 }
 
 /// <summary>
-/// A time-series chart rendered over the tab's <see cref="TabDescriptor.DataEndpoint"/> rows —
-/// the shell draws a line chart instead of the generic table. One y-scale by design (never a
-/// dual axis); one line per distinct <see cref="SeriesField"/> value when set.
+/// The geometry a <see cref="TabChart"/> renders with. Each kind reads the same three field
+/// hints, but with kind-specific meaning — documented per member.
+/// </summary>
+public enum TabChartKind
+{
+    /// <summary>
+    /// Time-series line (the default): <see cref="TabChart.XField"/> is an ISO date string,
+    /// <see cref="TabChart.YField"/> the numeric measure, one line per distinct
+    /// <see cref="TabChart.SeriesField"/> value.
+    /// </summary>
+    Line,
+
+    /// <summary>
+    /// Proportional donut: <see cref="TabChart.XField"/> is the category label,
+    /// <see cref="TabChart.YField"/> its numeric share. Rows with the same label are summed;
+    /// the shell caps named segments and rolls the tail into "Other".
+    /// <see cref="TabChart.SeriesField"/> is ignored.
+    /// </summary>
+    Donut,
+
+    /// <summary>
+    /// Categorical grouped bars: <see cref="TabChart.XField"/> is the category label (rendered
+    /// in row order), <see cref="TabChart.YField"/> the numeric measure, one bar per distinct
+    /// <see cref="TabChart.SeriesField"/> value within each category (e.g. income vs. expense
+    /// per month). The value axis always includes zero.
+    /// </summary>
+    Bar,
+}
+
+/// <summary>
+/// A chart rendered over the tab's <see cref="TabDescriptor.DataEndpoint"/> rows — the shell
+/// draws it instead of the generic table. <see cref="Kind"/> picks the geometry (time-series
+/// line by default). One y-scale by design (never a dual axis).
 /// </summary>
 public sealed record TabChart
 {
-    /// <summary>Row field holding the x value — an ISO date string (e.g. "takenOn").</summary>
+    /// <summary>Geometry to render. Defaults to <see cref="TabChartKind.Line"/>.</summary>
+    public TabChartKind Kind { get; init; } = TabChartKind.Line;
+
+    /// <summary>
+    /// Row field holding the x value — an ISO date string for <see cref="TabChartKind.Line"/>
+    /// (e.g. "takenOn"), the category label for <see cref="TabChartKind.Donut"/> and
+    /// <see cref="TabChartKind.Bar"/> (e.g. "category").
+    /// </summary>
     public required string XField { get; init; }
 
     /// <summary>Row field holding the numeric y value (e.g. "netWorth").</summary>
     public required string YField { get; init; }
 
-    /// <summary>Optional row field splitting rows into one line per value (e.g. "currencyCode").</summary>
+    /// <summary>
+    /// Optional row field splitting rows into one line (<see cref="TabChartKind.Line"/>) or one
+    /// bar per category (<see cref="TabChartKind.Bar"/>) per distinct value (e.g. "currencyCode",
+    /// "direction"). Ignored by <see cref="TabChartKind.Donut"/>.
+    /// </summary>
     public string? SeriesField { get; init; }
 
     /// <summary>Axis label for the measure (e.g. "Net worth").</summary>

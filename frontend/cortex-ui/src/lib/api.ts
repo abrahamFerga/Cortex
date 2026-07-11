@@ -45,13 +45,19 @@ export interface TabEditor {
   fields: TabEditorField[];
 }
 
-/** Render the tab's dataEndpoint rows as a time-series line chart instead of a table. */
+/** Render the tab's dataEndpoint rows as a chart instead of a table. */
 export interface TabChart {
-  /** Row field holding the x value — an ISO date string. */
+  /**
+   * Geometry: "line" (time-series, the default when absent), "donut" (proportional share per
+   * xField label; seriesField ignored), or "bar" (grouped bars per xField category, one bar per
+   * seriesField value — e.g. income vs. expense per month).
+   */
+  kind?: "line" | "donut" | "bar" | null;
+  /** Row field holding the x value — an ISO date string for line, the category label otherwise. */
   xField: string;
   /** Row field holding the numeric y value. */
   yField: string;
-  /** Optional row field splitting rows into one line per value (e.g. a currency code). */
+  /** Optional row field splitting rows into one line/bar per value (e.g. a currency code). */
   seriesField?: string | null;
   /** Axis label for the measure. */
   yLabel?: string | null;
@@ -90,7 +96,7 @@ export interface ModuleTab {
   editor?: TabEditor | null;
   /** Drill-down endpoint with one `{field}` placeholder resolved from the row; returns a TabDetailDocument. */
   detailEndpoint?: string | null;
-  /** When set, the shell renders the dataEndpoint rows as a line chart instead of a table. */
+  /** When set, the shell renders the dataEndpoint rows as a chart (line/donut/bar) instead of a table. */
   chart?: TabChart | null;
   /** Command buttons; present only for callers allowed to invoke them. */
   actions?: TabAction[];
