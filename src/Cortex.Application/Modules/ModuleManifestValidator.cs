@@ -60,6 +60,36 @@ public static class ModuleManifestValidator
             }
         }
 
+        // Admin tabs: ids unique within their module, labels present, and — because an admin
+        // surface must never be visible by default — a permission is REQUIRED, not optional.
+        foreach (var module in list)
+        {
+            var seenAdminTabIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var tab in module.AdminTabs)
+            {
+                var where = $"module '{module.Id}'";
+                if (string.IsNullOrWhiteSpace(tab.Id))
+                {
+                    errors.Add($"An admin tab in {where} has an empty id.");
+                }
+                else if (!seenAdminTabIds.Add(tab.Id))
+                {
+                    errors.Add($"Duplicate admin tab id '{tab.Id}' in {where} — admin tab ids must be unique within a module.");
+                }
+
+                if (string.IsNullOrWhiteSpace(tab.Label))
+                {
+                    errors.Add($"Admin tab '{tab.Id}' in {where} has an empty label.");
+                }
+                if (string.IsNullOrWhiteSpace(tab.Permission))
+                {
+                    errors.Add(
+                        $"Admin tab '{tab.Id}' in {where} declares no Permission — admin pages are " +
+                        "never visible by default, so every admin tab must be permission-gated.");
+                }
+            }
+        }
+
         // Tab routes must be unique across ALL modules: the shell resolves the active module from the
         // current route, so two tabs sharing a route would make navigation and deep-linking ambiguous.
         var routeOwners = new Dictionary<string, string>(StringComparer.Ordinal);

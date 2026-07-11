@@ -28,6 +28,16 @@ public sealed record ModuleManifest
     /// <summary>Dashboard tabs this module contributes.</summary>
     public IReadOnlyList<TabDescriptor> Tabs { get; init; } = [];
 
+    /// <summary>
+    /// Admin-console pages this module contributes, rendered by the admin app under the module's
+    /// name — the same server-driven machinery as <see cref="Tabs"/> (data table, editor, chart,
+    /// actions), surfaced at <c>/admin</c> instead of the domain shell. Every admin tab MUST
+    /// declare a <see cref="TabDescriptor.Permission"/> (validated at startup): an admin surface
+    /// is never visible by default. The admin shell navigates by module + tab id, so
+    /// <see cref="TabDescriptor.Route"/> is informational here.
+    /// </summary>
+    public IReadOnlyList<TabDescriptor> AdminTabs { get; init; } = [];
+
     /// <summary>Optional first-run setup wizard the shell renders when the module has no data yet.</summary>
     public OnboardingDescriptor? Onboarding { get; init; }
 

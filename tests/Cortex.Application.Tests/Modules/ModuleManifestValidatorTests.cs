@@ -96,6 +96,31 @@ public sealed class ModuleManifestValidatorTests
     }
 
     [Fact]
+    public void AdminTab_WithoutPermission_IsReported()
+    {
+        var module = Module("finance") with
+        {
+            AdminTabs = [Tab("institutions", "/ext/finance/institutions")],
+        };
+
+        var errors = ModuleManifestValidator.Validate([module]);
+
+        Assert.Contains(errors, e => e.Contains("declares no Permission"));
+    }
+
+    [Fact]
+    public void AdminTabs_WithPermission_AreValid_AndDuplicateIdsAreReported()
+    {
+        var gated = Tab("institutions", "/ext/finance/institutions") with { Permission = "finance.admin" };
+        Assert.Empty(ModuleManifestValidator.Validate([Module("finance") with { AdminTabs = [gated] }]));
+
+        var errors = ModuleManifestValidator.Validate([
+            Module("finance") with { AdminTabs = [gated, gated] },
+        ]);
+        Assert.Contains(errors, e => e.Contains("Duplicate admin tab id 'institutions'"));
+    }
+
+    [Fact]
     public void ThrowIfInvalid_ThrowsAggregatedMessage_WhenInvalid()
     {
         var ex = Assert.Throws<InvalidOperationException>(() =>

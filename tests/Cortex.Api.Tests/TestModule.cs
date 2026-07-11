@@ -18,12 +18,25 @@ internal sealed class TestModule : IModule
     /// <summary>The permission gating the module's side-effecting <c>record</c> tool.</summary>
     public const string RecordPermission = "tools.test.record";
 
+    /// <summary>The permission gating the module's admin-console extension page.</summary>
+    public const string AdminPagePermission = "test.admin";
+
     public ModuleManifest Manifest { get; } = new()
     {
         Id = "test",
         DisplayName = "Test Module",
         Version = "1.0.0",
         AgentInstructions = "You are a test assistant.",
+        AdminTabs =
+        [
+            new TabDescriptor
+            {
+                Id = "widgets", Label = "Widget registry", Route = "/ext/test/widgets",
+                Permission = AdminPagePermission,
+                DataEndpoint = "/api/test/widgets",
+                Columns = [new("name", "Name"), new("status", "Status")],
+            },
+        ],
         Tools =
         [
             new ToolDescriptor

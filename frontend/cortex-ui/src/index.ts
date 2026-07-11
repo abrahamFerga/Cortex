@@ -76,6 +76,7 @@ export type {
   ModuleSecurity,
   RoleInfo,
   ModuleAdmin,
+  AdminExtension,
   ConnectorAdmin,
   ConnectorSetting,
   AdminTenant,

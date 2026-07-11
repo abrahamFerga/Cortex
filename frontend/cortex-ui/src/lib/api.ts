@@ -87,6 +87,15 @@ export interface ModuleTab {
   actions?: TabAction[];
 }
 
+/** A module's admin-console page group (ModuleManifest.AdminTabs), from GET /api/admin/extensions. */
+export interface AdminExtension {
+  id: string;
+  displayName: string;
+  icon?: string;
+  /** Same wire shape as domain tabs — the admin app renders them with the generic tab machinery. */
+  tabs: ModuleTab[];
+}
+
 /** A section of a drill-down detail document: prose, or a sub-table. */
 export interface TabDetailSection {
   heading: string;
@@ -652,6 +661,8 @@ export const api = {
     auditAuthEvents: (take = 100) =>
       apiGet<AuthEvent[]>(`/api/admin/audit/auth-events?take=${take}`),
     modules: () => apiGet<ModuleAdmin[]>("/api/admin/modules"),
+    // Module-contributed admin console pages (ModuleManifest.AdminTabs), permission-filtered.
+    extensions: () => apiGet<AdminExtension[]>("/api/admin/extensions"),
     setModuleEnabled: (moduleId: string, enabled: boolean) =>
       apiSend(`/api/admin/modules/${encodeURIComponent(moduleId)}`, "PUT", { enabled }),
     connectors: () => apiGet<ConnectorAdmin[]>("/api/admin/connectors"),

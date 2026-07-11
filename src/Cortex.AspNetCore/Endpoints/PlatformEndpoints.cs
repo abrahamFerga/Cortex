@@ -91,30 +91,7 @@ public static class PlatformEndpoints
             .Concat(manifest.Workflows
                 .Select(w => new ModuleAgentDto(w.Name, $"Workflow · {w.Description}", false, null)))
             .ToArray();
-        var tabs = manifest.Tabs
-            .Where(t => t.Permission is null || user.HasPermission(t.Permission))
-            .OrderBy(t => t.Order)
-            .Select(t => new TabDto(
-                t.Id, t.Label, t.Route, t.Icon, t.DataEndpoint,
-                t.Columns.Select(c => new TabColumnDto(c.Field, c.Header)).ToArray(),
-                t.Placeholder,
-                // The editor ships only to callers holding its permission, so the payload never
-                // advertises affordances the user can't use (the endpoints stay gated regardless).
-                t.Editor is { } e && user.HasPermission(e.Permission)
-                    ? new TabEditorDto(
-                        e.UpsertEndpoint, e.DeleteEndpoint, e.KeyField,
-                        e.Fields.Select(ToFieldDto).ToArray())
-                    : null,
-                t.DetailEndpoint,
-                t.Chart is { } chart
-                    ? new TabChartDto(chart.XField, chart.YField, chart.SeriesField, chart.YLabel)
-                    : null,
-                // Same rule as the editor: only advertise actions the caller can actually invoke.
-                t.Actions
-                    .Where(a => a.Permission is null || user.HasPermission(a.Permission))
-                    .Select(a => new TabActionDto(a.Id, a.Label, a.Endpoint, a.Confirm))
-                    .ToArray()))
-            .ToArray();
+        var tabs = TabDtoMapper.MapTabs(manifest.Tabs, user);
 
         // The wizard ships only to callers who may run it — same rule as editors and actions.
         var onboarding = manifest.Onboarding is { } setup && user.HasPermission(setup.Permission)
@@ -122,7 +99,7 @@ public static class PlatformEndpoints
                 setup.ProbeEndpoint, setup.Title,
                 setup.Steps.Select(s => new OnboardingStepDto(
                     s.Id, s.Title, s.Blurb, s.Kind, s.Endpoint,
-                    s.Fields.Select(ToFieldDto).ToArray(),
+                    s.Fields.Select(TabDtoMapper.ToFieldDto).ToArray(),
                     s.Preset.Count > 0 ? new Dictionary<string, string>(s.Preset) : null,
                     s.FileIdField, s.Accept, s.Optional)).ToArray())
             : null;
@@ -150,26 +127,6 @@ public static class PlatformEndpoints
 
     /// <summary>An entry in the chat's agent picker: a tenant profile or a module-shipped agent.</summary>
     private sealed record ModuleAgentDto(string Name, string? Description, bool IsDefault, string? Model);
-
-    private sealed record TabDto(
-        string Id, string Label, string Route, string? Icon, string? DataEndpoint, TabColumnDto[] Columns, string? Placeholder,
-        TabEditorDto? Editor, string? DetailEndpoint, TabChartDto? Chart, TabActionDto[] Actions);
-
-    private sealed record TabChartDto(string XField, string YField, string? SeriesField, string? YLabel);
-
-    private sealed record TabActionDto(string Id, string Label, string Endpoint, string? Confirm);
-
-    private sealed record TabColumnDto(string Field, string Header);
-
-    private sealed record TabEditorDto(string UpsertEndpoint, string? DeleteEndpoint, string? KeyField, TabEditorFieldDto[] Fields);
-
-    private static TabEditorFieldDto ToFieldDto(TabEditorField f) => new(
-        f.Field, f.Label, f.Multiline, f.Required, f.Numeric,
-        f.Options?.ToArray(), f.OptionsEndpoint, f.OptionsField);
-
-    private sealed record TabEditorFieldDto(
-        string Field, string Label, bool Multiline, bool Required, bool Numeric,
-        string[]? Options, string? OptionsEndpoint, string? OptionsField);
 
     private sealed record MeDto(Guid? UserId, string? DisplayName, Guid? TenantId, string[] Permissions);
 

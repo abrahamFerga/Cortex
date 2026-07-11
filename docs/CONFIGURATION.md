@@ -150,6 +150,14 @@ Declared per module in the manifest (`ModuleManifest.Onboarding`): a probe endpo
 data yet?"), a permission, and info/form/upload steps. No host configuration — the shell renders
 the wizard and offers it via a dismissible banner while the probe returns an empty array.
 
+### Admin console extension pages (AdminTabs)
+
+Modules can contribute pages to the **admin console** the same way they contribute domain tabs:
+declare `ModuleManifest.AdminTabs` (the same `TabDescriptor` machinery — data table, editor,
+chart, actions) and the admin app renders them under the module's name, no `@cortex/admin-ui`
+fork needed. Every admin tab must declare a `Permission` (validated at startup) — an admin
+surface is never visible by default. Served permission-filtered at `GET /api/admin/extensions`.
+
 ## Where runtime configuration lives (admin console, per tenant)
 
 Everything below is stored in the database, editable at `/admin` without a deploy, and RBAC-gated:

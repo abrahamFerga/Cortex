@@ -1,5 +1,7 @@
 import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AdminErrorBoundary } from "../components/AdminErrorBoundary";
+import { ExtensionPage } from "./ModuleExtensions";
+import { useAdminExtensions } from "./extensions";
 import { RolesEditor } from "./RolesEditor";
 import { UsersAdmin } from "./UsersAdmin";
 import { ModulesAdmin } from "./ModulesAdmin";
@@ -39,6 +41,8 @@ function subNavClass({ isActive }: { isActive: boolean }): string {
  */
 export function AdminPage() {
   const location = useLocation();
+  // Module-contributed admin pages (permission-filtered server-side); empty for most deployments.
+  const extensions = useAdminExtensions();
   return (
     <div className="flex min-h-0 flex-1">
       <nav className="w-52 shrink-0 border-r border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
@@ -54,6 +58,22 @@ export function AdminPage() {
             </li>
           ))}
         </ul>
+        {(extensions.data ?? []).map((m) => (
+          <div key={m.id}>
+            <p className="mb-2 mt-4 px-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              {m.displayName}
+            </p>
+            <ul className="space-y-1">
+              {m.tabs.map((t) => (
+                <li key={t.id}>
+                  <NavLink to={`/ext/${m.id}/${t.id}`} className={subNavClass}>
+                    {t.label}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </nav>
 
       <main
@@ -77,6 +97,7 @@ export function AdminPage() {
             <Route path="usage" element={<UsageDashboard />} />
             <Route path="audit" element={<AuditLog />} />
             <Route path="ops" element={<OpsView />} />
+            <Route path="ext/:moduleId/:tabId" element={<ExtensionPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AdminErrorBoundary>
