@@ -7,6 +7,7 @@ import {
   type OnboardingStep,
   type TabEditorField,
 } from "../lib/api";
+import { FieldInput } from "./FieldInput";
 
 /**
  * The first-run setup wizard, rendered entirely from a module's manifest-declared onboarding
@@ -15,9 +16,6 @@ import {
  * records echo back immediately so progress feels real; a step rail shows where you are; focus
  * moves to the step heading on navigation so screen readers follow along.
  */
-
-const inputClass =
-  "w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800";
 
 interface WizardProps {
   module: Module;
@@ -71,25 +69,12 @@ function StepFields({
             {f.label}
             {!(f.required ?? true) && <span className="ml-1 font-normal text-slate-400">· optional</span>}
           </label>
-          {f.multiline ? (
-            <textarea
-              id={`ob-${step.id}-${f.field}`}
-              rows={3}
-              value={values[f.field] ?? ""}
-              onChange={(e) => onChange(f.field, e.target.value)}
-              className={inputClass}
-            />
-          ) : (
-            <input
-              id={`ob-${step.id}-${f.field}`}
-              type={f.numeric ? "number" : "text"}
-              inputMode={f.numeric ? "decimal" : undefined}
-              step={f.numeric ? "any" : undefined}
-              value={values[f.field] ?? ""}
-              onChange={(e) => onChange(f.field, e.target.value)}
-              className={inputClass}
-            />
-          )}
+          <FieldInput
+            id={`ob-${step.id}-${f.field}`}
+            field={f}
+            value={values[f.field] ?? ""}
+            onChange={(value) => onChange(f.field, value)}
+          />
         </div>
       ))}
     </div>

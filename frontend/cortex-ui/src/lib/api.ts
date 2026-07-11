@@ -22,6 +22,12 @@ export interface TabEditorField {
   required?: boolean;
   /** Render a number input and post a JSON number (for endpoints binding decimal/int). */
   numeric?: boolean;
+  /** Fixed vocabulary — the shell renders a select instead of free text. */
+  options?: string[] | null;
+  /** Draw the choices from live data: GET this endpoint… */
+  optionsEndpoint?: string | null;
+  /** …and offer each row's this field as an option (e.g. "name"). */
+  optionsField?: string | null;
 }
 
 /**
