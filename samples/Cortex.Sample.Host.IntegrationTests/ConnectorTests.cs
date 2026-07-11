@@ -36,9 +36,9 @@ public sealed class ConnectorTests(IntegrationFixture fixture) : IDisposable
 
         // Installed but default-OFF: both built-ins are listed, neither is enabled.
         var listing = await admin.GetFromJsonAsync<JsonElement>("/api/admin/connectors");
-        var localFolder = listing.EnumerateArray().Single(c => c.GetProperty("id").GetString() == "local-folder");
+        var localFolder = listing.GetProperty("installed").EnumerateArray().Single(c => c.GetProperty("id").GetString() == "local-folder");
         Assert.False(localFolder.GetProperty("enabled").GetBoolean());
-        Assert.Contains(listing.EnumerateArray(), c => c.GetProperty("id").GetString() == "azure-blob");
+        Assert.Contains(listing.GetProperty("installed").EnumerateArray(), c => c.GetProperty("id").GetString() == "azure-blob");
 
         // Before enablement the tenant has no connector tools and the tool answers honestly.
         using (var scope = await UserScopeAsync("it-user"))
@@ -53,7 +53,7 @@ public sealed class ConnectorTests(IntegrationFixture fixture) : IDisposable
         (await admin.PostAsync("/api/admin/connectors/local-folder/enable", null)).EnsureSuccessStatusCode();
 
         listing = await admin.GetFromJsonAsync<JsonElement>("/api/admin/connectors");
-        localFolder = listing.EnumerateArray().Single(c => c.GetProperty("id").GetString() == "local-folder");
+        localFolder = listing.GetProperty("installed").EnumerateArray().Single(c => c.GetProperty("id").GetString() == "local-folder");
         Assert.True(localFolder.GetProperty("enabled").GetBoolean());
         Assert.True(localFolder.GetProperty("settings").EnumerateArray()
             .Single(s => s.GetProperty("key").GetString() == "RootPath")
@@ -109,7 +109,7 @@ public sealed class ConnectorTests(IntegrationFixture fixture) : IDisposable
         var body = await response.Content.ReadAsStringAsync();
         Assert.DoesNotContain("super-secret-key", body);
 
-        var azure = JsonDocument.Parse(body).RootElement.EnumerateArray()
+        var azure = JsonDocument.Parse(body).RootElement.GetProperty("installed").EnumerateArray()
             .Single(c => c.GetProperty("id").GetString() == "azure-blob");
         var connectionSetting = azure.GetProperty("settings").EnumerateArray()
             .Single(s => s.GetProperty("key").GetString() == "ConnectionString");
@@ -144,7 +144,7 @@ public sealed class ConnectorTests(IntegrationFixture fixture) : IDisposable
         await fixture.EnsureTenantAsync("connector-tenant");
         using var foreignAdmin = fixture.ClientForTenant("system_admin", "connector-tenant");
         var listing = await foreignAdmin.GetFromJsonAsync<JsonElement>("/api/admin/connectors");
-        var localFolder = listing.EnumerateArray().Single(c => c.GetProperty("id").GetString() == "local-folder");
+        var localFolder = listing.GetProperty("installed").EnumerateArray().Single(c => c.GetProperty("id").GetString() == "local-folder");
         Assert.False(localFolder.GetProperty("enabled").GetBoolean());
 
         // A regular user may not manage integrations at all.

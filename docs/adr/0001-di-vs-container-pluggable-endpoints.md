@@ -2,7 +2,12 @@
 
 ## Status
 
-Proposed
+Accepted — Option A, plus the config-gate half of Option B (2026-07-11): `Modules:Exclude` /
+`Connectors:Exclude` let a deployment suppress compiled-in components by configuration alone, and
+`AddCortexConnectorsFrom(assembly)` registers a whole connector package in one call (the built-in
+bundle exposes it as `AddCortexConnectors()`). The assembly-directory loading half of Option B —
+loading modules a host never referenced at compile time — remains not adopted: no host has needed
+it, and its `AssemblyLoadContext` complexity stands.
 
 ## Context
 

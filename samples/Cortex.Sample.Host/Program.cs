@@ -4,13 +4,7 @@ using Cortex.Sample.Host;
 using Cortex.AspNetCore.Connectors;
 using Cortex.AspNetCore.Hosting;
 using Cortex.AspNetCore.Modules;
-using Cortex.Connectors.AzureBlob;
-using Cortex.Connectors.LocalFolder;
-using Cortex.Connectors.GoogleDrive;
-using Cortex.Connectors.MsGraph;
-using Cortex.Connectors.Peer;
-using Cortex.Connectors.S3;
-using Cortex.Connectors.Documenso;
+using Cortex.Connectors;
 using Cortex.Modules.Finance;
 using Cortex.Modules.Legal;
 using Cortex.Modules.Nutrition;
@@ -32,15 +26,10 @@ builder.AddCortexModule<FinanceModule>();
 builder.AddCortexModule<NutritionModule>();
 builder.AddCortexModule<LegalModule>();
 
-// Install the data-source connectors this product ships with. Installation only makes them
-// available — a tenant admin enables and configures each one under Integrations (default-off).
-builder.AddCortexConnector<LocalFolderConnector>();
-builder.AddCortexConnector<AzureBlobConnector>();
-builder.AddCortexConnector<CortexPeerConnector>(); // verticals are separate systems; this is how they talk
-builder.AddCortexConnector<MsGraphConnector>();
-builder.AddCortexConnector<GoogleDriveConnector>();
-builder.AddCortexConnector<S3Connector>();
-builder.AddCortexConnector<DocumensoConnector>(); // e-signature: hosted or self-hosted, API-token auth
+// Install every built-in data-source connector in one call. Installation only makes them
+// available — a tenant admin enables and configures each one under Integrations (default-off) —
+// and a deployment can still suppress any of them by config alone (Connectors:Exclude).
+builder.AddCortexConnectors();
 // A connector DEFINED BY THIS HOST (Cortex.Sample.Host assembly), not shipped in Cortex.Connectors —
 // proves a domain system can add its own connector. Networthy owns its Plaid connector the same way.
 builder.AddCortexConnector<HostDefinedCrmConnector>();

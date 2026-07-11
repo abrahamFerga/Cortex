@@ -104,6 +104,8 @@ and change without a deploy.
 | `Secrets` | `Provider` (DataProtection/AzureKeyVault), `KeyVaultUri` | Where runtime-entered secrets rest |
 | `Cors:Origins` | Allowed SPA origins | Aspire injects these automatically in dev |
 | `ConnectionStrings` | `cortex-platform`, `cortex-audit`, `cortex-redis` | Env vars in containers |
+| `Connectors:Exclude` | Connector ids to suppress deployment-wide, e.g. `["s3","documenso"]` | Removes a compiled-in connector without recompiling; see below |
+| `Modules:Exclude` | Module ids to suppress deployment-wide | Unlike the per-tenant toggle, exclusion removes endpoints/tools/catalog entry entirely |
 
 ### Wiring MCP tool servers
 
@@ -124,6 +126,17 @@ failed start or chat turn.
   ]
 }
 ```
+
+### Connectors: what a deployment offers vs. what a tenant uses
+
+Two dials, deliberately separate. **What the deployment offers** is code + config: the built-in
+bundle registers in one line (`builder.AddCortexConnectors()`), any package's connectors register
+with `AddCortexConnectorsFrom(assembly)`, and `Connectors:Exclude` suppresses any of them without
+recompiling. **What a tenant uses** is the admin's runtime, default-off toggle on the Integrations
+page — enabling a connector there is what makes its tools exist for that tenant, each still
+RBAC-gated and audited. The Integrations page also lists first-party connectors the deployment
+did NOT install (with the package + registration call), so discovering an integration never
+requires reading platform source. `Modules:Exclude` works the same way for domain modules.
 
 ### Product identity (Branding)
 
