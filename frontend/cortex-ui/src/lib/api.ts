@@ -226,6 +226,13 @@ export interface PendingApproval {
   argumentsJson?: string;
   userDisplay?: string;
   createdAt: string;
+  /**
+   * Review ceremony, from the declaring tool: "low" renders a compact one-tap confirm,
+   * "high" (and anything unresolvable) the full review card. A hint, never a gate.
+   */
+  risk?: "low" | "high";
+  /** The declaring tool's human description, when it has one — friendlier than the tool name. */
+  description?: string | null;
 }
 
 // ── Admin / security dashboard shapes ────────────────────────────────────────
