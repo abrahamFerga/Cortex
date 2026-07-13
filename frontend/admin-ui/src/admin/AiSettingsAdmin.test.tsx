@@ -117,4 +117,30 @@ describe("AiSettingsAdmin", () => {
     });
     expect(document.querySelector('option[value="provider-model-a"]')).not.toBeNull();
   });
+
+  it("turns the Model field into a dropdown once models are loaded, with a manual-entry escape", async () => {
+    stubApi();
+    renderSettings();
+
+    await screen.findByLabelText("System prompt");
+    // Before discovery the Model field is a free-text input (custom ids, Azure deployment names).
+    fireEvent.change(screen.getByLabelText("Provider"), { target: { value: "OpenAI" } });
+    fireEvent.change(screen.getByLabelText("API key"), { target: { value: "sk-test" } });
+    expect((screen.getByLabelText("Model") as HTMLElement).tagName).toBe("INPUT");
+
+    fireEvent.click(screen.getByRole("button", { name: "Load models from provider" }));
+    await screen.findByText(/2 models loaded/);
+
+    // Now it's a real dropdown listing the discovered models.
+    const select = screen.getByLabelText("Model") as HTMLSelectElement;
+    expect(select.tagName).toBe("SELECT");
+    fireEvent.change(select, { target: { value: "provider-model-b" } });
+    expect((screen.getByLabelText("Model") as HTMLSelectElement).value).toBe("provider-model-b");
+
+    // Picking "custom" drops back to a text input so an unlisted id can still be entered.
+    fireEvent.change(screen.getByLabelText("Model"), { target: { value: "__custom__" } });
+    expect((screen.getByLabelText("Model") as HTMLElement).tagName).toBe("INPUT");
+    fireEvent.change(screen.getByLabelText("Model"), { target: { value: "my-fine-tune" } });
+    expect((screen.getByLabelText("Model") as HTMLInputElement).value).toBe("my-fine-tune");
+  });
 });
