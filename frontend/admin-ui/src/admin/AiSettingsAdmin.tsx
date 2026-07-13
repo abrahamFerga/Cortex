@@ -27,6 +27,9 @@ const blankForm: FormState = {
   clearKey: false,
 };
 
+/** Sentinel Model-dropdown option that switches the field back to free-text entry. */
+const CUSTOM_MODEL = "__custom__";
+
 /**
  * Per-tenant AI settings: the provider connection (switch provider/model at runtime, bring your
  * own API key — stored write-only in the secret vault), the assistant's base system prompt, and
@@ -38,6 +41,10 @@ export function AiSettingsAdmin() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(blankForm);
   const set = (patch: Partial<FormState>) => setForm((f) => ({ ...f, ...patch }));
+  // The Model field is a dropdown once the provider's models have been discovered; this flag flips
+  // it back to a free-text input for a custom/unlisted id (and Azure deployment names, which aren't
+  // discoverable). Reset whenever the provider changes or the form is reset.
+  const [modelCustom, setModelCustom] = useState(false);
 
   useEffect(() => {
     if (settings.data) {
@@ -100,6 +107,11 @@ export function AiSettingsAdmin() {
   const willHaveKey = apiKey.trim() !== "" || (data.hasApiKey && !clearKey);
   const keyMissing = needsKey && !willHaveKey;
   const canDiscover = provider === "OpenAI" || provider === "Anthropic" || provider === "Ollama";
+  // Models discovered from the provider (empty until "Load models from provider" succeeds).
+  const discoveredModels = models.data?.models ?? [];
+  // A real dropdown once we have a list to choose from; otherwise a free-text input (for a custom
+  // id, or before anything's been discovered — Azure deployment names are never discoverable).
+  const showModelDropdown = discoveredModels.length > 0 && !modelCustom;
 
   return (
     <div className="max-w-2xl space-y-5">
@@ -132,6 +144,7 @@ export function AiSettingsAdmin() {
                 value={provider}
                 onChange={(e) => {
                   models.reset();
+                  setModelCustom(false);
                   set({ provider: e.target.value, model: "" });
                 }}
                 className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800"
@@ -149,19 +162,50 @@ export function AiSettingsAdmin() {
               <label htmlFor="ai-model" className="block text-sm font-medium text-slate-700 dark:text-slate-200">
                 Model
               </label>
-              <input
-                id="ai-model"
-                list={models.data?.models.length ? "ai-model-options" : undefined}
-                value={model}
-                onChange={(e) => set({ model: e.target.value })}
-                placeholder={`Default: ${data.defaultModel}`}
-                className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800"
-              />
-              {models.data?.models.length ? (
-                <datalist id="ai-model-options">
-                  {models.data.models.map((id) => <option key={id} value={id} />)}
-                </datalist>
-              ) : null}
+              {showModelDropdown ? (
+                <select
+                  id="ai-model"
+                  value={model}
+                  onChange={(e) => {
+                    if (e.target.value === CUSTOM_MODEL) {
+                      setModelCustom(true);
+                      set({ model: "" });
+                    } else {
+                      set({ model: e.target.value });
+                    }
+                  }}
+                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800"
+                >
+                  <option value="">Default: {data.defaultModel}</option>
+                  {/* Keep a previously-saved id selectable even when the provider no longer lists it. */}
+                  {model !== "" && !discoveredModels.includes(model) && (
+                    <option value={model}>{model} (custom)</option>
+                  )}
+                  {discoveredModels.map((id) => (
+                    <option key={id} value={id}>
+                      {id}
+                    </option>
+                  ))}
+                  <option value={CUSTOM_MODEL}>Enter a custom model id…</option>
+                </select>
+              ) : (
+                <input
+                  id="ai-model"
+                  value={model}
+                  onChange={(e) => set({ model: e.target.value })}
+                  placeholder={`Default: ${data.defaultModel}`}
+                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800"
+                />
+              )}
+              {discoveredModels.length > 0 && modelCustom && (
+                <button
+                  type="button"
+                  onClick={() => setModelCustom(false)}
+                  className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+                >
+                  Choose from loaded models instead
+                </button>
+              )}
             </div>
           </div>
           {needsEndpoint && (
@@ -221,7 +265,7 @@ export function AiSettingsAdmin() {
               {models.data && (
                 <p className="text-xs text-slate-400">
                   {models.data.models.length
-                    ? `${models.data.models.length} models loaded. Choose one from the Model field or enter an id manually.`
+                    ? `${models.data.models.length} models loaded. Choose one from the Model dropdown, or enter a custom id.`
                     : models.data.message ?? "The provider returned no models."}
                 </p>
               )}
@@ -309,6 +353,8 @@ export function AiSettingsAdmin() {
             onClick={() => {
               // Back to the deployment defaults, including clearing any stored tenant key.
               const reset = { ...blankForm, clearKey: true };
+              models.reset();
+              setModelCustom(false);
               setForm(reset);
               save.mutate(reset);
             }}
