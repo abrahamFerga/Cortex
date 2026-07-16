@@ -35,6 +35,12 @@ public static class FieldDefaultSources
     /// it is one of the field's options, so a module's curated list is never overridden with a
     /// value its endpoint would reject.</summary>
     public const string BrowserTimeZone = "browser-timezone";
+
+    /// <summary>The ISO-4217 currency of the viewer's browser locale region (e.g. an <c>es-MX</c>
+    /// browser → <c>MXN</c>). A GUESS, deliberately: a locale is not a bank account, so it is only
+    /// a starting point the user can change, and — like every default — it is ignored unless it is
+    /// one of the field's options.</summary>
+    public const string BrowserCurrency = "browser-currency";
 }
 
 /// <summary>
@@ -52,6 +58,12 @@ public static class FieldDefaultSources
 /// time zone. Both are a starting point the user can always change, never a value posted behind
 /// their back: an empty form still posts nothing.
 /// </para>
+/// <para>
+/// <paramref name="Group"/> is a purely presentational hint the shell uses when it lays a form out
+/// as sections (a <see cref="TabDescriptor.Singleton"/> tab): fields sharing a group render under
+/// one heading, in declaration order. Ungrouped fields sit above the first heading. Ignored by the
+/// table editor, where fields are always a flat list.
+/// </para>
 /// </summary>
 public sealed record TabEditorField(
     string Field,
@@ -64,7 +76,8 @@ public sealed record TabEditorField(
     string? OptionsField = null,
     bool Masked = false,
     string? Default = null,
-    string? DefaultFrom = null);
+    string? DefaultFrom = null,
+    string? Group = null);
 
 /// <summary>
 /// Optional mutation affordances for a server-driven tab: when declared, the shell's generic table
@@ -253,6 +266,15 @@ public sealed record TabDescriptor
 
     /// <summary>Columns for the <see cref="DataEndpoint"/> table. Empty falls back to the row's own fields.</summary>
     public IReadOnlyList<TabColumn> Columns { get; init; } = [];
+
+    /// <summary>
+    /// This <see cref="DataEndpoint"/> is ONE config object, not a list. The shell renders its single
+    /// row as a labeled form — the <see cref="Editor"/>'s fields, grouped by <see cref="TabEditorField.Group"/>,
+    /// prefilled from the row and saved as a whole — instead of a table with an Add button that never
+    /// made sense for a singleton. Callers without the editor's permission see the values read-only.
+    /// The endpoint still returns a one-element array, exactly as the table path expects.
+    /// </summary>
+    public bool Singleton { get; init; }
 
     /// <summary>Optional add/edit/delete affordances for the <see cref="DataEndpoint"/> table.</summary>
     public TabEditor? Editor { get; init; }

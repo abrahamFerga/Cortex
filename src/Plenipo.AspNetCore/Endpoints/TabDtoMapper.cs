@@ -39,13 +39,14 @@ internal static class TabDtoMapper
                 t.RowActions
                     .Where(a => a.Permission is null || user.HasPermission(a.Permission))
                     .Select(a => new TabRowActionDto(a.Id, a.Label, a.EndpointTemplate, a.Confirm))
-                    .ToArray()))
+                    .ToArray(),
+                t.Singleton))
             .ToArray();
 
     internal static TabEditorFieldDto ToFieldDto(TabEditorField f) => new(
         f.Field, f.Label, f.Multiline, f.Required, f.Numeric,
         f.Options?.Select(o => new TabEditorOptionDto(o.Value, o.Label)).ToArray(),
-        f.OptionsEndpoint, f.OptionsField, f.Masked, f.Default, f.DefaultFrom);
+        f.OptionsEndpoint, f.OptionsField, f.Masked, f.Default, f.DefaultFrom, f.Group);
 
     // The wire keeps the kind a lowercase string literal (the shell switches on it), not an
     // enum ordinal — adding a kind must never renumber what existing clients see.
@@ -59,7 +60,8 @@ internal static class TabDtoMapper
 
 internal sealed record TabDto(
     string Id, string Label, string Route, string? Icon, bool Home, string? DataEndpoint, TabColumnDto[] Columns, string? Placeholder,
-    TabEditorDto? Editor, string? DetailEndpoint, TabChartDto? Chart, TabActionDto[] Actions, TabRowActionDto[] RowActions);
+    TabEditorDto? Editor, string? DetailEndpoint, TabChartDto? Chart, TabActionDto[] Actions, TabRowActionDto[] RowActions,
+    bool Singleton);
 
 internal sealed record TabChartDto(string Kind, string XField, string YField, string? SeriesField, string? YLabel);
 
@@ -76,4 +78,4 @@ internal sealed record TabEditorOptionDto(string Value, string Label);
 internal sealed record TabEditorFieldDto(
     string Field, string Label, bool Multiline, bool Required, bool Numeric,
     TabEditorOptionDto[]? Options, string? OptionsEndpoint, string? OptionsField, bool Masked,
-    string? Default, string? DefaultFrom);
+    string? Default, string? DefaultFrom, string? Group);

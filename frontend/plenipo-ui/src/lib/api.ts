@@ -43,6 +43,8 @@ export interface TabEditorField {
   default?: string | null;
   /** A starting value only the viewer's browser knows — see resolveFieldDefaults. */
   defaultFrom?: string | null;
+  /** Presentational section heading in a singleton form; ignored by the table editor. */
+  group?: string | null;
 }
 
 /**
@@ -107,6 +109,8 @@ export interface ModuleTab {
   /** When set, the shell renders this GET endpoint's JSON array as a table (using `columns`). */
   dataEndpoint?: string;
   columns?: TabColumn[];
+  /** This dataEndpoint is one config object, not a list: render it as a labeled form, not a table. */
+  singleton?: boolean;
   /** Friendly empty-state copy shown when the tab has no `dataEndpoint` and no supplied content. */
   placeholder?: string;
   /** Add/edit/delete affordances for the table; present only when the caller may use them. */

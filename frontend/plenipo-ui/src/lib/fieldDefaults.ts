@@ -15,12 +15,43 @@ import type { TabEditorField } from "./api";
 /** Values only the browser can answer. Keep in sync with FieldDefaultSources (C#). */
 const SOURCES: Record<string, () => string | undefined> = {
   "browser-timezone": browserTimeZone,
+  "browser-currency": browserCurrency,
 };
 
 function browserTimeZone(): string | undefined {
   try {
     // Absent in exotic/locked-down runtimes; a missing time zone is not worth throwing over.
     return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// ISO-3166 region → ISO-4217 currency, for the currencies people commonly hold. This is a GUESS
+// map, not a source of truth: a region with no entry simply yields no guess (the field stays on
+// "Choose…", exactly as before), and any guess is still validated against the field's options and
+// remains the user's to change. Eurozone members all map to EUR.
+const REGION_CURRENCY: Record<string, string> = {
+  US: "USD", CA: "CAD", MX: "MXN", BR: "BRL", AR: "ARS", CL: "CLP", CO: "COP", PE: "PEN",
+  GB: "GBP", IE: "EUR", FR: "EUR", DE: "EUR", ES: "EUR", PT: "EUR", IT: "EUR", NL: "EUR",
+  BE: "EUR", AT: "EUR", FI: "EUR", GR: "EUR", LU: "EUR", SK: "EUR", SI: "EUR", EE: "EUR",
+  LV: "EUR", LT: "EUR", CY: "EUR", MT: "EUR", HR: "EUR",
+  CH: "CHF", SE: "SEK", NO: "NOK", DK: "DKK", PL: "PLN", CZ: "CZK", HU: "HUF", RO: "RON",
+  BG: "BGN", IS: "ISK", TR: "TRY", RU: "RUB", UA: "UAH",
+  CN: "CNY", JP: "JPY", KR: "KRW", IN: "INR", ID: "IDR", TH: "THB", VN: "VND", PH: "PHP",
+  MY: "MYR", SG: "SGD", HK: "HKD", TW: "TWD", PK: "PKR", BD: "BDT", LK: "LKR",
+  AU: "AUD", NZ: "NZD",
+  ZA: "ZAR", NG: "NGN", EG: "EGP", KE: "KES", GH: "GHS", MA: "MAD",
+  AE: "AED", SA: "SAR", IL: "ILS", QA: "QAR", KW: "KWD", BH: "BHD", OM: "OMR", JO: "JOD",
+};
+
+function browserCurrency(): string | undefined {
+  try {
+    const lang = typeof navigator !== "undefined" ? navigator.language : undefined;
+    if (!lang) return undefined;
+    // maximize() fills in the LIKELY region when the tag omits it: "es" → "es-ES", "en" → "en-US".
+    const region = new Intl.Locale(lang).maximize().region;
+    return region ? REGION_CURRENCY[region] : undefined;
   } catch {
     return undefined;
   }

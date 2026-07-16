@@ -383,3 +383,87 @@ describe("GenericTab (server-driven table)", () => {
     });
   });
 });
+
+describe("GenericTab (singleton form)", () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  const settingsTab: ModuleTab = {
+    id: "settings",
+    label: "Settings",
+    route: "/finance/settings",
+    dataEndpoint: "/api/finance/settings",
+    singleton: true,
+    columns: [
+      { field: "defaultCurrencyCode", header: "Default currency" },
+      { field: "timeZoneId", header: "Time zone" },
+    ],
+    // The wire TabEditor carries no permission — the server strips the editor entirely from the
+    // payload for callers who lack it, so its mere presence means "this caller may manage".
+    editor: {
+      upsertEndpoint: "/api/finance/settings",
+      fields: [
+        { field: "defaultCurrencyCode", label: "Default currency", group: "Currency & locale",
+          options: [{ value: "USD", label: "USD" }, { value: "MXN", label: "MXN" }] },
+        { field: "billReminderLeadDays", label: "Bill reminder lead (days)", required: false, numeric: true,
+          group: "Reminders" },
+      ],
+    },
+  };
+
+  it("renders a labeled form (not a table) prefilled from the single config row", async () => {
+    renderTab(settingsTab, [{ defaultCurrencyCode: "MXN", billReminderLeadDays: 5 }]);
+
+    // A form, not a grid: the currency select is prefilled from the row, and there is no Add button.
+    await screen.findByLabelText("Default currency");
+    expect((screen.getByLabelText("Default currency") as HTMLSelectElement).value).toBe("MXN");
+    expect((screen.getByLabelText("Bill reminder lead (days)") as HTMLInputElement).value).toBe("5");
+    expect(screen.queryByText("Add")).toBeNull();
+    expect(document.querySelector("table")).toBeNull();
+  });
+
+  it("groups fields under their section headings", async () => {
+    renderTab(settingsTab, [{ defaultCurrencyCode: "USD" }]);
+    await screen.findByLabelText("Default currency");
+    expect(screen.getByText("Currency & locale")).toBeTruthy();
+    expect(screen.getByText("Reminders")).toBeTruthy();
+  });
+
+  it("saves the whole config to the upsert endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([{ defaultCurrencyCode: "USD" }]),
+    } as unknown as Response);
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <GenericTab tab={settingsTab} />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.change(await screen.findByLabelText("Default currency"), { target: { value: "MXN" } });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => {
+      const post = fetchMock.mock.calls.find(
+        (c) => String(c[0]).endsWith("/api/finance/settings") && (c[1] as RequestInit)?.method === "POST",
+      );
+      expect(post).toBeTruthy();
+      expect(JSON.parse((post![1] as RequestInit).body as string).defaultCurrencyCode).toBe("MXN");
+    });
+    expect(await screen.findByTestId("settings-saved")).toBeTruthy();
+  });
+
+  it("shows read-only values when the caller lacks the editor (no manage permission)", async () => {
+    const readOnly: ModuleTab = { ...settingsTab, editor: null };
+    renderTab(readOnly, [{ defaultCurrencyCode: "USD", timeZoneId: "UTC" }]);
+
+    // The value shows against its column label, and there is no editable control or Save button.
+    expect(await screen.findByText("USD")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /save/i })).toBeNull();
+    expect(screen.queryByRole("combobox")).toBeNull();
+  });
+});

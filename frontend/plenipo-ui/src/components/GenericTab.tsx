@@ -9,9 +9,10 @@ import {
   type TabColumn,
   type TabDetailDocument,
   type TabEditor,
+  type TabEditorField,
   type TabRowAction,
 } from "../lib/api";
-import { resolveFieldDefaults } from "../lib/fieldDefaults";
+import { resolveFieldDefault, resolveFieldDefaults } from "../lib/fieldDefaults";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { FieldInput } from "./FieldInput";
 import { TabChartView } from "./TabChart";
@@ -593,6 +594,156 @@ function ActionBar({ actions }: { actions: TabAction[] }) {
   );
 }
 
+/** Fields in declaration order, split into (heading, fields) sections by `group`; ungrouped first. */
+function groupFields(fields: TabEditorField[]): { heading: string | null; fields: TabEditorField[] }[] {
+  const sections: { heading: string | null; fields: TabEditorField[] }[] = [];
+  for (const f of fields) {
+    const heading = f.group ?? null;
+    const last = sections[sections.length - 1];
+    if (last && last.heading === heading) last.fields.push(f);
+    else sections.push({ heading, fields: [f] });
+  }
+  return sections;
+}
+
+/**
+ * The editable half of a singleton tab: one config object rendered as a labeled form, grouped by
+ * `field.group`, saved as a whole. Values seed from the stored row; an unset field adopts its
+ * declared default (e.g. the browser's time zone) as a visible starting point — never posted
+ * unless the user leaves it in place. Mirrors EditorForm's typed/omit-empty POST contract.
+ */
+function SingletonEditor({ row, editor }: { row: Record<string, unknown>; editor: TabEditor }) {
+  const qc = useQueryClient();
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      editor.fields.map((f) => {
+        const stored = row[f.field];
+        return [f.field, stored == null || stored === "" ? resolveFieldDefault(f) : String(stored)];
+      }),
+    ),
+  );
+  const [saved, setSaved] = useState(false);
+
+  const save = useMutation({
+    mutationFn: () =>
+      apiSend(
+        editor.upsertEndpoint,
+        "POST",
+        Object.fromEntries(
+          editor.fields
+            .filter((f) => values[f.field].trim() !== "")
+            .map((f) => [f.field, f.numeric ? Number(values[f.field]) : values[f.field]]),
+        ),
+      ),
+    onSuccess: () => {
+      setSaved(true);
+      void qc.invalidateQueries({ queryKey: ["tab-data"] });
+    },
+  });
+
+  const invalid = editor.fields.some(
+    (f) => f.numeric && values[f.field].trim() !== "" && Number.isNaN(Number(values[f.field])),
+  );
+
+  return (
+    <form
+      className="max-w-2xl space-y-6"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!invalid) save.mutate();
+      }}
+    >
+      {groupFields(editor.fields).map((section, i) => (
+        <fieldset key={section.heading ?? `_${i}`} className="space-y-3">
+          {section.heading && (
+            <legend className="border-b border-slate-200 pb-1 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:text-slate-400">
+              {section.heading}
+            </legend>
+          )}
+          {section.fields.map((f) => (
+            <div key={f.field} className="grid gap-1 sm:grid-cols-[14rem_1fr] sm:items-center sm:gap-4">
+              <label htmlFor={`set-${f.field}`} className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                {f.label}
+              </label>
+              <FieldInput
+                id={`set-${f.field}`}
+                field={f}
+                value={values[f.field]}
+                onChange={(value) => {
+                  setValues((v) => ({ ...v, [f.field]: value }));
+                  setSaved(false); // a fresh edit clears the "Saved ✓" from the previous save
+                }}
+              />
+            </div>
+          ))}
+        </fieldset>
+      ))}
+
+      {save.isError && <p className="text-sm text-red-600">{(save.error as Error).message}</p>}
+
+      <div className="flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={save.isPending || invalid}
+          className="focus-ring rounded bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-40"
+        >
+          {save.isPending ? "Saving…" : "Save changes"}
+        </button>
+        {saved && !save.isPending && (
+          <span className="text-sm text-emerald-600 dark:text-emerald-400" data-testid="settings-saved">
+            Saved ✓
+          </span>
+        )}
+      </div>
+    </form>
+  );
+}
+
+/**
+ * A tab whose `dataEndpoint` is ONE config object (`tab.singleton`) — rendered as a labeled form,
+ * not a table with an Add button that never applied to a single row. With an editor (the caller
+ * may manage) the config is editable and saved as a whole; without one it shows read-only, labeled
+ * by `columns`. The endpoint returns a one-element array, exactly as the table path expects.
+ */
+function SingletonForm({
+  endpoint,
+  columns,
+  editor,
+}: {
+  endpoint: string;
+  columns: TabColumn[];
+  editor?: TabEditor | null;
+}) {
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["tab-data", endpoint],
+    queryFn: () => apiGet<Record<string, unknown>[]>(endpoint),
+  });
+
+  if (isLoading) return <p className="text-sm text-slate-500">Loading…</p>;
+  if (isError) return <p className="text-sm text-red-600">{(error as Error).message}</p>;
+
+  const row = data?.[0] ?? {};
+
+  if (editor) {
+    // Remount when the fetched row changes so the form re-seeds from fresh data after a save.
+    return <SingletonEditor key={JSON.stringify(row)} row={row} editor={editor} />;
+  }
+
+  // Read-only: the caller can view but not manage — show the values, labeled by columns.
+  return (
+    <dl className="max-w-2xl divide-y divide-slate-100 dark:divide-slate-800">
+      {columns.map((c) => (
+        <div key={c.field} className="grid gap-1 py-2 sm:grid-cols-[14rem_1fr] sm:gap-4">
+          <dt className="text-sm font-medium text-slate-500 dark:text-slate-400">{c.header}</dt>
+          <dd className="text-sm text-slate-800 dark:text-slate-200">
+            {row[c.field] == null || row[c.field] === "" ? "—" : String(row[c.field])}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 /**
  * Server-driven tab content. If the tab declares a `dataEndpoint`, its data renders as a table —
  * or as a chart (time-series line, donut, or grouped bars per `chart.kind`) when the tab
@@ -609,6 +760,8 @@ export function GenericTab({ tab, children }: GenericTabProps) {
       {children ??
         (tab.dataEndpoint && tab.chart ? (
           <TabChartView endpoint={tab.dataEndpoint} spec={tab.chart} />
+        ) : tab.dataEndpoint && tab.singleton ? (
+          <SingletonForm endpoint={tab.dataEndpoint} columns={tab.columns ?? []} editor={tab.editor} />
         ) : tab.dataEndpoint ? (
           <DataTable
             endpoint={tab.dataEndpoint}

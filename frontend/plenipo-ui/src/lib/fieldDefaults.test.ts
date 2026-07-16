@@ -15,6 +15,11 @@ function browserSaysTimeZone(zone: string) {
   } as unknown as Intl.DateTimeFormat);
 }
 
+/** Pin the browser's UI language, which is where the currency guess derives its region. */
+function browserSaysLanguage(lang: string) {
+  vi.spyOn(globalThis.navigator, "language", "get").mockReturnValue(lang);
+}
+
 afterEach(() => vi.restoreAllMocks());
 
 describe("resolveFieldDefault", () => {
@@ -90,6 +95,44 @@ describe("resolveFieldDefault", () => {
   it("leaves options loaded from an endpoint alone — they are unknown at seed time", () => {
     const f = field({ default: "Chase Checking", optionsEndpoint: "/api/finance/accounts" });
     expect(resolveFieldDefault(f)).toBe("Chase Checking");
+  });
+
+  const currencyField = (over: Partial<TabEditorField> = {}) =>
+    field({
+      field: "currencyCode",
+      label: "Currency",
+      defaultFrom: "browser-currency",
+      options: [
+        { value: "USD", label: "USD" },
+        { value: "MXN", label: "MXN" },
+        { value: "EUR", label: "EUR" },
+      ],
+      ...over,
+    });
+
+  it("guesses the currency from a region-tagged browser language", () => {
+    browserSaysLanguage("es-MX");
+    expect(resolveFieldDefault(currencyField())).toBe("MXN");
+  });
+
+  it("fills in the likely region when the language omits it (en → US → USD)", () => {
+    browserSaysLanguage("en");
+    expect(resolveFieldDefault(currencyField())).toBe("USD");
+  });
+
+  it("maps a eurozone locale to EUR", () => {
+    browserSaysLanguage("de-DE");
+    expect(resolveFieldDefault(currencyField())).toBe("EUR");
+  });
+
+  it("offers no currency guess for a region the map doesn't cover, rather than a wrong one", () => {
+    browserSaysLanguage("es-BO"); // Bolivia — a real region, deliberately absent from the guess map
+    expect(resolveFieldDefault(currencyField())).toBe("");
+  });
+
+  it("still refuses a guessed currency the field does not offer", () => {
+    browserSaysLanguage("ja-JP"); // JPY, absent from these options
+    expect(resolveFieldDefault(currencyField())).toBe("");
   });
 });
 

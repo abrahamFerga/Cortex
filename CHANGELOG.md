@@ -29,13 +29,23 @@ all runnable with no AI key via a built-in Mock provider. See [README.md](README
 
 - **`TabEditorField.Default` / `.DefaultFrom`** — a field may say what it should start as.
   `Default` is a constant the manifest knows; `DefaultFrom` (see `FieldDefaultSources`) is for what
-  only the viewer's browser can answer — today `browser-timezone`, so a setup wizard fills in where
-  the user actually lives instead of asking them to hunt for it, or silently defaulting to UTC.
+  only the viewer's browser can answer — today `browser-timezone` and `browser-currency`, so a setup
+  wizard fills in where the user actually lives (and their likely currency) instead of asking them
+  to hunt for it, or silently defaulting to UTC/USD. `browser-currency` is an explicit *guess* from
+  the browser locale's region — always editable, and validated against the field's options like any
+  default.
 
   The shell still never pre-picks an option on its own; a default is a field *declaring* its
   starting point, always editable, and never posted behind the user's back. A default the field's
   own vocabulary doesn't contain is ignored rather than offered and then rejected by the endpoint.
   Defaults apply to a blank form only — editing a record shows the record.
+
+- **Singleton config tabs render as a form, not a table** — `TabDescriptor.Singleton` marks a
+  `DataEndpoint` that is one config object rather than a list. The shell renders its single row as a
+  labeled form (the editor's fields, prefilled from the row, saved as a whole) instead of a table
+  with an Add button that never made sense for a single row. `TabEditorField.Group` sections the
+  form under headings. Callers without the editor's permission see the values read-only. The
+  endpoint contract is unchanged — it still returns a one-element array.
 
 **Platform (backend NuGet packages)**
 - **Module SDK** — a vertical implements `IModule` and declares a `ModuleManifest` (tools, tabs,

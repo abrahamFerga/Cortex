@@ -60,11 +60,24 @@ public class TabEditorFieldTests
     [Fact]
     public void A_field_can_say_what_only_the_browser_knows()
     {
-        var field = new TabEditorField(
+        var tz = new TabEditorField(
             "timeZoneId", "Time zone", Required: false,
             Options: ["UTC"], Default: "UTC", DefaultFrom: FieldDefaultSources.BrowserTimeZone);
+        Assert.Equal("UTC", tz.Default);
+        Assert.Equal("browser-timezone", tz.DefaultFrom);
 
-        Assert.Equal("UTC", field.Default);
-        Assert.Equal("browser-timezone", field.DefaultFrom);
+        // Currency guesses from the browser's locale region — a distinct source, same mechanism.
+        var currency = new TabEditorField(
+            "currencyCode", "Currency", DefaultFrom: FieldDefaultSources.BrowserCurrency);
+        Assert.Equal("browser-currency", currency.DefaultFrom);
+    }
+
+    [Fact]
+    public void A_field_can_carry_a_presentational_group_for_singleton_forms()
+    {
+        var field = new TabEditorField("timeZoneId", "Time zone", Group: "Currency & locale");
+        Assert.Equal("Currency & locale", field.Group);
+        // Ungrouped is the default — the table editor ignores it entirely.
+        Assert.Null(new TabEditorField("name", "Name").Group);
     }
 }
