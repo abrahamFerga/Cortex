@@ -14,7 +14,28 @@ The first alpha: the base platform, an admin/security dashboard, and three sampl
 all runnable with no AI key via a built-in Mock provider. See [README.md](README.md) and
 [GETTING_STARTED.md](GETTING_STARTED.md).
 
+### Changed
+
+- **`TabEditorField.Options` now carries a label as well as a value** (`TabEditorOption`).
+  Canonical identifiers are rarely readable — `America/Mexico_City` is exactly right to store and
+  exactly wrong to show — so a field can now say what a human should read while still posting the
+  identifier its endpoint expects.
+
+  *Breaking, but only where options come from a variable:* a bare string converts implicitly, so
+  `Options: ["checking", "savings"]` is unchanged; an existing array spreads with
+  `Options: [.. codes]`.
+
 ### Added
+
+- **`TabEditorField.Default` / `.DefaultFrom`** — a field may say what it should start as.
+  `Default` is a constant the manifest knows; `DefaultFrom` (see `FieldDefaultSources`) is for what
+  only the viewer's browser can answer — today `browser-timezone`, so a setup wizard fills in where
+  the user actually lives instead of asking them to hunt for it, or silently defaulting to UTC.
+
+  The shell still never pre-picks an option on its own; a default is a field *declaring* its
+  starting point, always editable, and never posted behind the user's back. A default the field's
+  own vocabulary doesn't contain is ignored rather than offered and then rejected by the endpoint.
+  Defaults apply to a blank form only — editing a record shows the record.
 
 **Platform (backend NuGet packages)**
 - **Module SDK** — a vertical implements `IModule` and declares a `ModuleManifest` (tools, tabs,

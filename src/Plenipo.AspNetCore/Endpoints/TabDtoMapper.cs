@@ -44,7 +44,8 @@ internal static class TabDtoMapper
 
     internal static TabEditorFieldDto ToFieldDto(TabEditorField f) => new(
         f.Field, f.Label, f.Multiline, f.Required, f.Numeric,
-        f.Options?.ToArray(), f.OptionsEndpoint, f.OptionsField, f.Masked);
+        f.Options?.Select(o => new TabEditorOptionDto(o.Value, o.Label)).ToArray(),
+        f.OptionsEndpoint, f.OptionsField, f.Masked, f.Default, f.DefaultFrom);
 
     // The wire keeps the kind a lowercase string literal (the shell switches on it), not an
     // enum ordinal — adding a kind must never renumber what existing clients see.
@@ -70,6 +71,9 @@ internal sealed record TabColumnDto(string Field, string Header, bool Masked);
 
 internal sealed record TabEditorDto(string UpsertEndpoint, string? DeleteEndpoint, string? KeyField, TabEditorFieldDto[] Fields);
 
+internal sealed record TabEditorOptionDto(string Value, string Label);
+
 internal sealed record TabEditorFieldDto(
     string Field, string Label, bool Multiline, bool Required, bool Numeric,
-    string[]? Options, string? OptionsEndpoint, string? OptionsField, bool Masked);
+    TabEditorOptionDto[]? Options, string? OptionsEndpoint, string? OptionsField, bool Masked,
+    string? Default, string? DefaultFrom);

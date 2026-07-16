@@ -7,6 +7,7 @@ import {
   type OnboardingStep,
   type TabEditorField,
 } from "../lib/api";
+import { resolveFieldDefaults } from "../lib/fieldDefaults";
 import { FieldInput } from "./FieldInput";
 
 /**
@@ -26,8 +27,9 @@ interface WizardProps {
 /** Values the user typed for a step's fields, keyed by field name. */
 type FieldValues = Record<string, string>;
 
+/** A step's starting values: whatever its fields declare they should start as (usually nothing). */
 function emptyValues(fields: TabEditorField[]): FieldValues {
-  return Object.fromEntries(fields.map((f) => [f.field, ""]));
+  return resolveFieldDefaults(fields);
 }
 
 /** Build the POST body: typed fields (numerics converted, empties omitted) + the step's preset. */

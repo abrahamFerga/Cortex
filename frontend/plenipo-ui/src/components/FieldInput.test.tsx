@@ -27,12 +27,38 @@ describe("FieldInput", () => {
   });
 
   it("renders a select for a fixed vocabulary and never pre-picks", () => {
-    const onChange = renderField({ field: "direction", label: "Direction", options: ["expense", "income"] });
+    const onChange = renderField({
+      field: "direction",
+      label: "Direction",
+      options: [
+        { value: "expense", label: "expense" },
+        { value: "income", label: "income" },
+      ],
+    });
 
     const select = screen.getByRole("combobox") as HTMLSelectElement;
     expect(select.value).toBe(""); // the blank "Choose…" entry
     fireEvent.change(select, { target: { value: "income" } });
     expect(onChange).toHaveBeenCalledWith("income");
+  });
+
+  it("shows the label but posts the value — identifiers store right and read wrong", () => {
+    const onChange = renderField({
+      field: "timeZoneId",
+      label: "Time zone",
+      options: [
+        { value: "UTC", label: "UTC" },
+        { value: "America/Mexico_City", label: "Mexico City" },
+      ],
+    });
+
+    // The reader sees a place, not an IANA identifier.
+    expect(screen.getByRole("option", { name: "Mexico City" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "America/Mexico_City" })).toBeNull();
+
+    // …and the wire still carries the identifier the endpoint expects.
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "America/Mexico_City" } });
+    expect(onChange).toHaveBeenCalledWith("America/Mexico_City");
   });
 
   it("draws dynamic options from the endpoint's rows", async () => {

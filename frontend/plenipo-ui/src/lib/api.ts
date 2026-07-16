@@ -17,6 +17,13 @@ export interface TabColumn {
 }
 
 /** A field in a tab's generic editor form. */
+/** One choice in a select: the `value` posted, and the `label` a human reads. They differ whenever
+ *  the value is a machine identifier — "America/Mexico_City" stores right and shows wrong. */
+export interface TabEditorOption {
+  value: string;
+  label: string;
+}
+
 export interface TabEditorField {
   field: string;
   label: string;
@@ -25,13 +32,17 @@ export interface TabEditorField {
   /** Render a number input and post a JSON number (for endpoints binding decimal/int). */
   numeric?: boolean;
   /** Fixed vocabulary — the shell renders a select instead of free text. */
-  options?: string[] | null;
+  options?: TabEditorOption[] | null;
   /** Draw the choices from live data: GET this endpoint… */
   optionsEndpoint?: string | null;
   /** …and offer each row's this field as an option (e.g. "name"). */
   optionsField?: string | null;
   /** PII-grade value: the input renders password-style behind a reveal toggle while typing. */
   masked?: boolean;
+  /** A constant the manifest knows the field should start as. */
+  default?: string | null;
+  /** A starting value only the viewer's browser knows — see resolveFieldDefaults. */
+  defaultFrom?: string | null;
 }
 
 /**

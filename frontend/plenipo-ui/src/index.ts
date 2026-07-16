@@ -75,6 +75,7 @@ export type {
   TabColumn,
   TabEditor,
   TabEditorField,
+  TabEditorOption,
   TabRowAction,
   TabDetailDocument,
   TabDetailSection,

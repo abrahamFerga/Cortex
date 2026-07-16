@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiGet, type TabEditorField } from "../lib/api";
+import { apiGet, type TabEditorField, type TabEditorOption } from "../lib/api";
 
 /**
  * One form field of a server-declared shape, shared by the generic tab editor and the setup
@@ -30,12 +30,15 @@ export function FieldInput({ id, field, value, disabled, onChange }: FieldInputP
     staleTime: 30_000,
   });
 
-  const options =
+  // Live options are values a human already chose (account names) — they read fine as their own
+  // label. A declared vocabulary carries its own labels, because its values may be identifiers.
+  const options: TabEditorOption[] | null =
     field.options ??
     (field.optionsEndpoint
       ? (dynamic.data ?? [])
           .map((row) => row[field.optionsField ?? "name"])
           .filter((v): v is string => typeof v === "string" && v.length > 0)
+          .map((v) => ({ value: v, label: v }))
       : null);
 
   if (options !== null) {
@@ -49,11 +52,12 @@ export function FieldInput({ id, field, value, disabled, onChange }: FieldInputP
           onChange={(e) => onChange(e.target.value)}
           className={fieldInputClass}
         >
-          {/* A deliberate blank first entry: never silently pre-pick on the user's behalf. */}
+          {/* A deliberate blank first entry: never silently pre-pick on the user's behalf. A field
+              that declares a default starts on it instead — chosen by the manifest, not guessed. */}
           <option value="">{empty ? "Nothing to choose yet" : "Choose…"}</option>
           {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </select>

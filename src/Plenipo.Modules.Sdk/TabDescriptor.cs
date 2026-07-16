@@ -15,6 +15,29 @@ namespace Plenipo.Modules.Sdk;
 public sealed record TabColumn(string Field, string Header, bool Masked = false);
 
 /// <summary>
+/// One choice in a field's select: the <paramref name="Value"/> that gets posted, and the
+/// <paramref name="Label"/> a human reads. Canonical identifiers are often unreadable —
+/// <c>America/Mexico_City</c> is exactly right to STORE and exactly wrong to SHOW — so a field
+/// whose values are machine identifiers should label them. A bare string converts implicitly to
+/// an option labelled with its own value, so <c>Options: ["checking", "savings"]</c> reads as it
+/// always did; spread an existing array with <c>Options: [.. Codes]</c>.
+/// </summary>
+public sealed record TabEditorOption(string Value, string Label)
+{
+    public static implicit operator TabEditorOption(string value) => new(value, value);
+}
+
+/// <summary>Tokens for <see cref="TabEditorField.DefaultFrom"/> — values only the VIEWER's browser
+/// can supply, which a manifest declared at startup cannot possibly know.</summary>
+public static class FieldDefaultSources
+{
+    /// <summary>The viewer's own IANA time zone (e.g. <c>America/Mexico_City</c>). Ignored unless
+    /// it is one of the field's options, so a module's curated list is never overridden with a
+    /// value its endpoint would reject.</summary>
+    public const string BrowserTimeZone = "browser-timezone";
+}
+
+/// <summary>
 /// A field in a tab's generic editor form: which row/body property, its label, and its shape.
 /// <paramref name="Numeric"/> makes the shell render a number input and post a JSON number, so
 /// endpoints binding <c>decimal</c>/<c>int</c> properties work without string-parsing shims.
@@ -22,6 +45,13 @@ public sealed record TabColumn(string Field, string Header, bool Masked = false)
 /// free-text guessing game: <paramref name="Options"/> for a fixed vocabulary (directions,
 /// cadences), or <paramref name="OptionsEndpoint"/> + <paramref name="OptionsField"/> to draw
 /// the choices from live data (account names from <c>/api/finance/accounts</c>'s <c>name</c>).
+/// <para>
+/// The shell never pre-picks an option on its own — but a field may say what it should start as.
+/// <paramref name="Default"/> is a constant the manifest knows; <paramref name="DefaultFrom"/>
+/// (see <see cref="FieldDefaultSources"/>) is for what only the viewer's browser knows, like their
+/// time zone. Both are a starting point the user can always change, never a value posted behind
+/// their back: an empty form still posts nothing.
+/// </para>
 /// </summary>
 public sealed record TabEditorField(
     string Field,
@@ -29,10 +59,12 @@ public sealed record TabEditorField(
     bool Multiline = false,
     bool Required = true,
     bool Numeric = false,
-    IReadOnlyList<string>? Options = null,
+    IReadOnlyList<TabEditorOption>? Options = null,
     string? OptionsEndpoint = null,
     string? OptionsField = null,
-    bool Masked = false);
+    bool Masked = false,
+    string? Default = null,
+    string? DefaultFrom = null);
 
 /// <summary>
 /// Optional mutation affordances for a server-driven tab: when declared, the shell's generic table

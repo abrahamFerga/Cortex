@@ -11,6 +11,7 @@ import {
   type TabEditor,
   type TabRowAction,
 } from "../lib/api";
+import { resolveFieldDefaults } from "../lib/fieldDefaults";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { FieldInput } from "./FieldInput";
 import { TabChartView } from "./TabChart";
@@ -135,9 +136,17 @@ function EditorForm({
   onDone: () => void;
 }) {
   const qc = useQueryClient();
-  const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(editor.fields.map((f) => [f.field, initial?.[f.field] == null ? "" : String(initial[f.field])])),
-  );
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    // Declared defaults are for a BLANK form only. Editing shows the record as it actually is —
+    // quietly filling a row's empty field with a default would edit data the user never touched.
+    const defaults = initial === null ? resolveFieldDefaults(editor.fields) : {};
+    return Object.fromEntries(
+      editor.fields.map((f) => [
+        f.field,
+        initial?.[f.field] == null ? (defaults[f.field] ?? "") : String(initial[f.field]),
+      ]),
+    );
+  });
 
   const save = useMutation({
     // Numeric fields post as JSON numbers so endpoints binding decimal/int work as-is. Fields left
