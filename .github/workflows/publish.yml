@@ -138,7 +138,7 @@ jobs:
         run: |
           pnpm -C frontend/plenipo-ui build
           (cd frontend/plenipo-ui && npm pkg set version="${{ steps.ver.outputs.version }}")
-          (cd frontend/plenipo-ui && npm publish --ignore-scripts --access public --provenance)
+          (cd frontend/plenipo-ui && npm publish --ignore-scripts --access public --provenance --tag latest)
 
       - name: Attach artifacts to the release
         if: github.event_name == 'release'

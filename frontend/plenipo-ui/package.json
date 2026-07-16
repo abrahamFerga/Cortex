@@ -3,13 +3,13 @@
   "version": "0.1.0-alpha",
   "description": "Base platform UI for Plenipo \u2014 chat shell, module switcher, server-driven tabs.",
   "license": "MIT",
-  "homepage": "https://github.com/abrahamFerga/Cortex/tree/main/frontend/plenipo-ui#readme",
+  "homepage": "https://github.com/abrahamFerga/Plenipo/tree/main/frontend/plenipo-ui#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/abrahamFerga/Cortex.git",
+    "url": "git+https://github.com/abrahamFerga/Plenipo.git",
     "directory": "frontend/plenipo-ui"
   },
-  "bugs": "https://github.com/abrahamFerga/Cortex/issues",
+  "bugs": "https://github.com/abrahamFerga/Plenipo/issues",
   "type": "module",
   "main": "./dist/plenipo-ui.umd.js",
   "module": "./dist/plenipo-ui.es.js",
